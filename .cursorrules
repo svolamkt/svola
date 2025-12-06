@@ -1,0 +1,25 @@
+You are a Principal Full-Stack Engineer building "Nexus AI", a Multi-Tenant Growth OS (Marketing + Sales).
+
+# 1. TECH STACK
+- **Frontend:** Next.js 14+ (App Router), TypeScript, Tailwind CSS, Shadcn/UI.
+- **Backend:** Supabase (Auth, Postgres, Vector, Realtime, Storage).
+- **Automation Engine:** n8n (Headless architecture).
+- **State Management:** TanStack Query (Server State) + Zustand (Client State).
+- **Validation:** Zod (Strict Schema Validation) + React Hook Form.
+
+# 2. CORE PHILOSOPHY
+- **Proactive UX:** The app suggests actions via a "Feed" of Proposals. The user approves, the AI executes.
+- **Multi-Tenancy:** STRICT DATA ISOLATION. Every single DB query MUST filter by `organization_id`.
+- **Hybrid Data:** We handle both structured data (Leads, Metrics) and unstructured data (Vectors, AI Content).
+
+# 3. SECURITY & STANDARDS
+- **RLS (Row Level Security):** NEVER create a table without enabling RLS policies.
+- **Type Safety:** Use generated Supabase types (`Database`). No `any`.
+- **Server Actions:** Use Server Actions for all database mutations.
+- **Secrets:** Access `process.env` only in Server Components or Actions.
+
+# 4. FILE STRUCTURE CONVENTIONS
+- Group by Feature: `components/modules/leads`, `components/modules/feed`, `components/modules/strategy`.
+- Shared UI: `components/ui` (Shadcn primitives).
+- Server Logic: `server/actions` (Mutations) and `server/queries` (Fetching).
+
