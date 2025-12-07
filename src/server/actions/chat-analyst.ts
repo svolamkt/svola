@@ -57,10 +57,11 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
 
     // 2. Prepare Payload for n8n Chat Trigger (webhook mode)
-    // Chat Trigger expects: { message, sessionId?, metadata? }
+    // Chat Trigger in webhook mode expects: { message } or { message, sessionId, metadata }
     // Include organization_id in message as hidden metadata (format: [ORG_ID:xxx])
     const messageWithOrgId = `[ORG_ID:${profile.organization_id}] ${message}`
     
+    // Try both formats - Chat Trigger might accept different payload structures
     const payload = {
       message: messageWithOrgId,
       sessionId: `session-${user.id}`, // Keep conversation context per user
@@ -83,25 +84,64 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       }
     }
 
-    const res = await fetch(webhookUrl, {
+    console.log('Calling n8n webhook:', webhookUrl)
+    console.log('Payload:', JSON.stringify(payload, null, 2))
+
+    let res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
 
+    // Se 404, prova con formato semplificato (solo message)
+    if (res.status === 404) {
+      console.log('404 received, trying simplified payload format...')
+      const simplePayload = { message: messageWithOrgId }
+      res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(simplePayload)
+      })
+    }
+
     if (!res.ok) {
       const errorText = await res.text()
       console.error('n8n chat trigger error:', res.status, errorText)
+      
+      // Dettagli dell'errore per il frontend
+      let errorMessage = `Errore ${res.status} dal server n8n`
+      
+      if (res.status === 404) {
+        errorMessage = `Errore 404: Webhook non trovato.\n\nVerifica che:\n- Il workflow "Nexus Deep Analyst" (ID: bjSW53qgmDGMP5TZ) sia attivo in n8n\n- L'URL del webhook sia corretto\n- Il nodo Chat Trigger sia configurato in modalità "webhook"\n\nURL tentato: ${webhookUrl}\n\nPer ottenere l'URL corretto:\n1. Apri il workflow in n8n\n2. Clicca sul nodo "Chat Trigger"\n3. Copia l'URL del webhook mostrato\n4. Aggiorna la variabile N8N_CHAT_WEBHOOK_URL in Vercel`
+      } else if (res.status === 500) {
+        errorMessage = `Errore 500: Errore interno del server n8n.\n\nDettagli: ${errorText.substring(0, 300)}`
+      } else {
+        errorMessage = `Errore ${res.status}: ${errorText.substring(0, 300)}`
+      }
+      
       return {
-        response: `Errore dal server n8n (${res.status}). Verifica che il workflow sia attivo.`,
-        error: true
+        response: errorMessage,
+        error: true,
+        statusCode: res.status,
+        details: `URL: ${webhookUrl}\n\nErrore: ${errorText}`
       }
     }
     
     // Chat Trigger returns the response directly (from "Respond to Chat" node)
-    const data = await res.json()
+    let data
+    try {
+      data = await res.json()
+    } catch (jsonError) {
+      // Se la risposta non è JSON, prova a leggerla come testo
+      const textResponse = await res.text()
+      return {
+        response: textResponse || "Risposta ricevuta ma formato non riconosciuto",
+        error: false
+      }
+    }
+    
     // The response might be in data.text or data.response or just the string
-    const responseText = data?.text || data?.response || data?.output || JSON.stringify(data)
+    const responseText = data?.text || data?.response || data?.output || data?.message || JSON.stringify(data)
     
     return {
       response: responseText,
@@ -109,9 +149,14 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
   } catch (error) {
     console.error('Error in sendMessageToAnalyst:', error)
+    const errorMessage = error instanceof Error 
+      ? `Errore di connessione: ${error.message}` 
+      : "Errore di connessione. Riprova tra poco."
+    
     return {
-      response: "Errore di connessione. Riprova tra poco.",
-      error: true
+      response: errorMessage,
+      error: true,
+      details: error instanceof Error ? error.stack : String(error)
     }
   }
 }
