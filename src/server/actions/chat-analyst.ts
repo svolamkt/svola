@@ -73,7 +73,8 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
 
     // 3. Call n8n Chat Trigger Webhook
-    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/fb166c84-71dc-4dfd-a585-87cbdef9aac9/chat'
+    // Updated webhook URL from user provided value
+    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/65451435-29d5-417a-9d9a-821927badee5/chat'
 
     if (!webhookUrl) {
       console.warn('N8N_CHAT_WEBHOOK_URL not configured')
