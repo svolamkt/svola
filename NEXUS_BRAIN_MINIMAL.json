@@ -1,0 +1,97 @@
+{
+  "name": "Nexus Brain Minimal Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-analyst"
+      },
+      "id": "webhook-1",
+      "name": "Chat Webhook",
+      "position": [0, 0],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "User said: {{ $json.body.message }}\n\nReply as Nexus AI assistant. Keep it brief and helpful."
+      },
+      "id": "agent-1",
+      "name": "Chat Agent",
+      "position": [220, 0],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        }
+      },
+      "id": "set-1",
+      "name": "Response",
+      "position": [440, 0],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "gemini-1",
+      "name": "Google Gemini Chat Model",
+      "position": [220, 200],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Chat Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Chat Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Response",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Chat Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+

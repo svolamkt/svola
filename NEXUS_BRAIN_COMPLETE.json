@@ -1,0 +1,310 @@
+{
+  "name": "Nexus Brain Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-analyst"
+      },
+      "id": "webhook-1",
+      "name": "Chat Webhook",
+      "position": [0, 0],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Analyze this user message: \"{{ $json.body.message }}\".\n\nIf the user provides a URL or asks to analyze a website, return strictly valid JSON:\n{ \"action\": \"analyze\", \"url\": \"THE_URL\" }\n\nIf it is a general chat, return:\n{ \"action\": \"chat\", \"response\": \"...\" }\n\nOutput ONLY the JSON string."
+      },
+      "id": "router-1",
+      "name": "Router Agent",
+      "position": [220, 0],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.item.json.output;\nconst clean = content.replace(/```json/g, '').replace(/```/g, '');\ntry {\n  const parsed = JSON.parse(clean);\n  return [{ json: parsed }];\n} catch (e) {\n  return [{ json: { action: \"chat\", response: content } }];\n}"
+      },
+      "id": "parse-1",
+      "name": "Parse Router",
+      "position": [440, 0],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "analyze"
+            },
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "chat"
+            }
+          ]
+        }
+      },
+      "id": "switch-1",
+      "name": "Switch",
+      "position": [660, 0],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}"
+      },
+      "id": "scrape-1",
+      "name": "Scrape Site",
+      "position": [880, -150],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data || $input.item.json.body || $input.item.json;\nconst markdown = html.toString().replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\nreturn [{ json: { data: markdown } }];"
+      },
+      "id": "html-1",
+      "name": "HTML to Markdown",
+      "position": [1100, -150],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Extract Brand Identity from the content below.\n\nReturn strictly valid JSON with fields: company_name, company_description, industry, primary_color, secondary_color, typography.\n\nContent: {{ $json.data }}\n\nOutput ONLY the JSON string."
+      },
+      "id": "extractor-1",
+      "name": "Extractor Agent",
+      "position": [1320, -150],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "brand_identity",
+        "matchColumn": "organization_id",
+        "matchValue": "={{ $('Chat Webhook').item.json.body.organization_id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_name": "={{ $json.company_name }}",
+            "company_description": "={{ $json.company_description }}",
+            "industry": "={{ $json.industry }}",
+            "primary_color": "={{ $json.primary_color }}",
+            "secondary_color": "={{ $json.secondary_color }}",
+            "typography": "={{ $json.typography }}"
+          }
+        }
+      },
+      "id": "supabase-1",
+      "name": "Update Supabase",
+      "position": [1540, -150],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "=Analisi completata! Dati aggiornati."
+            }
+          ]
+        }
+      },
+      "id": "success-1",
+      "name": "Success Response",
+      "position": [1760, -150],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "User: {{ $('Chat Webhook').item.json.body.message }}\n\nReply as Nexus AI. Keep it brief."
+      },
+      "id": "chat-1",
+      "name": "Chat Agent",
+      "position": [880, 100],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        }
+      },
+      "id": "chat-resp-1",
+      "name": "Chat Response",
+      "position": [1100, 100],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "gemini-1",
+      "name": "Google Gemini Chat Model",
+      "position": [220, 250],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Router Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Router Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Parse Router",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Parse Router": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Scrape Site",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Chat Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Scrape Site": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "HTML to Markdown",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "HTML to Markdown": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extractor Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extractor Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update Supabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update Supabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Success Response",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Chat Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Chat Response",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Router Agent",
+            "type": "ai_languageModel"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Extractor Agent",
+            "type": "ai_languageModel"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Chat Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+

@@ -1,0 +1,158 @@
+{
+  "name": "Nexus Deep Analyst",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-analyst",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "Sei il Chief Marketing Officer di Nexus AI. Il tuo obiettivo è compilare il 'Brand Master File' per l'azienda dell'utente.\n\nRiceverai un URL e un contesto. Devi:\n1. Analizzare il sito web (usando il tool 'read_website').\n2. Dedurre o cercare informazioni sul mercato e i competitor.\n3. Generare un oggetto JSON STRETTO con questa struttura per i 7 pilastri:\n\n{\n  \"brand_dna\": { \"purpose\": \"...\", \"mission\": \"...\", \"values\": [], \"archetypes\": [], \"tone_of_voice\": \"...\" },\n  \"product_matrix\": { \"value_proposition\": \"...\", \"usp\": \"...\", \"benefits\": [] },\n  \"customer_persona\": { \"personas\": [], \"pain_points\": [], \"triggers\": [] },\n  \"market_context\": { \"trends\": [], \"market_size\": \"...\" },\n  \"competitors_data\": { \"direct_competitors\": [], \"positioning_map\": \"...\" },\n  \"brand_perception\": { \"sentiment\": \"...\" },\n  \"marketing_assets\": { \"funnel\": \"...\", \"channels\": [] }\n}\n\nNon inventare dati se non li trovi, ma fai stime educate basate sul settore. RISPONDI SOLO CON IL JSON, NIENTE ALTRO TESTO."
+        }
+      },
+      "id": "ai-agent",
+      "name": "Deep Research Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [220, 220],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "read_website",
+        "description": "Reads the content of a website URL. Use this to analyze the company.",
+        "jsCode": "const url = inputObject.url;\nif (!url) return \"No URL provided\";\n\ntry {\n  const response = await fetch(url);\n  const html = await response.text();\n  const text = html.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').substring(0, 10000);\n  return text;\n} catch (e) {\n  return \"Error reading website: \" + e.message;\n}"
+      },
+      "id": "tool-read-website",
+      "name": "Read Website",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [380, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pulisce l'output dell'AI per estrarre solo il JSON\nconst output = $input.item.json.output || \"\";\nlet json = {};\n\ntry {\n  const start = output.indexOf('{');\n  const end = output.lastIndexOf('}');\n  if (start !== -1 && end !== -1) {\n    json = JSON.parse(output.substring(start, end + 1));\n  }\n} catch(e) {\n  json = { error: \"Failed to parse JSON\", raw: output };\n}\n\nreturn { json };"
+      },
+      "id": "parse-json",
+      "name": "Parse AI JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "tableName": "brand_identity",
+        "operation": "update",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "brand_dna": "={{ $json.brand_dna }}",
+            "product_matrix": "={{ $json.product_matrix }}",
+            "customer_persona": "={{ $json.customer_persona }}",
+            "market_context": "={{ $json.market_context }}",
+            "competitors_data": "={{ $json.competitors_data }}",
+            "brand_perception": "={{ $json.brand_perception }}",
+            "marketing_assets": "={{ $json.marketing_assets }}"
+          },
+          "matchingColumns": [
+            "organization_id"
+          ]
+        }
+      },
+      "id": "supabase-update",
+      "name": "Update DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [660, 0],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASESVOLA",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Deep Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Website": {
+      "ai_tool": [
+        [
+          {
+            "node": "Deep Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI JSON": {
+      "main": [
+        [
+          {
+            "node": "Update DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
