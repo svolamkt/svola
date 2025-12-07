@@ -1,8 +1,8 @@
 import { login } from '@/server/actions/auth'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function LoginPage() {
   return (
@@ -28,7 +28,7 @@ export default function LoginPage() {
               Sign In
             </Button>
             <p className="text-sm text-center text-gray-500">
-              Don't have an account? <a href="/register" className="underline">Start Trial</a>
+              Don&apos;t have an account? <a href="/register" className="underline">Start Trial</a>
             </p>
           </form>
         </CardContent>

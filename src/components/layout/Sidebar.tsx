@@ -42,4 +42,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

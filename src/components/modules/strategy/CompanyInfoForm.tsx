@@ -139,4 +139,3 @@ export function CompanyInfoForm({ initialData }: { initialData?: any }) {
     </Card>
   )
 }
-

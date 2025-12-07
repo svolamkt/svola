@@ -22,4 +22,3 @@ export async function getBrandIdentity() {
 
   return data
 }
-

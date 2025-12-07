@@ -105,4 +105,3 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
   }
 }
-

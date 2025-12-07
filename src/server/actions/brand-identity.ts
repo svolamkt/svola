@@ -181,4 +181,3 @@ export async function updateBrandKit(formData: FormData) {
 
   revalidatePath('/brain')
 }
-
