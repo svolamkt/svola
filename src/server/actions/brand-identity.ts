@@ -42,7 +42,7 @@ export async function updateCompanyInfo(formData: FormData) {
         full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
         role: 'admin'
       })
-      .select('organization_id')
+      .select('organization_id, full_name')
       .single()
     
     if (updateError || !updatedProfile) {
@@ -138,7 +138,7 @@ export async function updateBrandKit(formData: FormData) {
         full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
         role: 'admin'
       })
-      .select('organization_id')
+      .select('organization_id, full_name')
       .single()
     
     if (updateError || !updatedProfile) {
