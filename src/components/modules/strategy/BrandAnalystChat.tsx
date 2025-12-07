@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils"
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  error?: boolean
+  statusCode?: number
+  details?: string
 }
 
 export function BrandAnalystChat() {
@@ -46,11 +49,25 @@ export function BrandAnalystChat() {
       const result = await sendMessageToAnalyst(userMsg, messages)
       
       if (result.response) {
-        setMessages(prev => [...prev, { role: 'assistant', content: result.response }])
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: result.response,
+          error: result.error || false,
+          statusCode: result.statusCode,
+          details: result.details
+        }])
       }
     } catch (error) {
       console.error(error)
-      setMessages(prev => [...prev, { role: 'assistant', content: "Errore di connessione. Riprova." }])
+      const errorMsg = error instanceof Error 
+        ? `Errore: ${error.message}` 
+        : "Errore di connessione. Riprova."
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: errorMsg,
+        error: true,
+        details: error instanceof Error ? error.stack : String(error)
+      }])
     } finally {
       setLoading(false)
     }
@@ -89,9 +106,26 @@ export function BrandAnalystChat() {
                 "p-3 rounded-lg text-sm",
                 msg.role === 'user' 
                   ? "bg-primary text-primary-foreground rounded-tr-none" 
+                  : msg.error
+                  ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-tl-none"
                   : "bg-muted text-foreground rounded-tl-none"
               )}>
-                {msg.content}
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {msg.error && msg.statusCode && (
+                  <div className="mt-2 pt-2 border-t border-destructive/20">
+                    <div className="text-xs font-mono text-destructive/80">
+                      Codice errore: {msg.statusCode}
+                    </div>
+                    {msg.details && (
+                      <details className="mt-1">
+                        <summary className="text-xs text-destructive/60 cursor-pointer">Dettagli tecnici</summary>
+                        <pre className="text-xs mt-1 p-2 bg-destructive/5 rounded overflow-auto max-h-32">
+                          {msg.details.substring(0, 500)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
