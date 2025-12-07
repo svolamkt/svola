@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area" // Assuming you might add ScrollArea later, or use div
 import { Send, Bot, User, Sparkles, Loader2 } from "lucide-react"
 import { sendMessageToAnalyst } from '@/server/actions/chat-analyst'
 import { cn } from "@/lib/utils"
