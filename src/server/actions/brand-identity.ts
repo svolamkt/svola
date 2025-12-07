@@ -14,7 +14,7 @@ export async function updateCompanyInfo(formData: FormData) {
 
   let { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('organization_id')
+    .select('organization_id, full_name')
     .eq('id', user.id)
     .single()
 
@@ -110,7 +110,7 @@ export async function updateBrandKit(formData: FormData) {
 
   let { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('organization_id')
+    .select('organization_id, full_name')
     .eq('id', user.id)
     .single()
 
