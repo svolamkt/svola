@@ -57,13 +57,13 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
 
     // 2. Prepare Payload for n8n Chat Trigger (webhook mode)
-    // Chat Trigger in webhook mode expects: { message } or { message, sessionId, metadata }
+    // Chat Trigger in webhook mode expects: { chatInput } or { message } or { chatInput, sessionId, metadata }
     // Include organization_id in message as hidden metadata (format: [ORG_ID:xxx])
     const messageWithOrgId = `[ORG_ID:${profile.organization_id}] ${message}`
     
-    // Try both formats - Chat Trigger might accept different payload structures
+    // Chat Trigger expects 'chatInput' field, not 'message'
     const payload = {
-      message: messageWithOrgId,
+      chatInput: messageWithOrgId,
       sessionId: `session-${user.id}`, // Keep conversation context per user
       metadata: {
         organization_id: profile.organization_id,
@@ -93,15 +93,28 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       body: JSON.stringify(payload)
     })
 
-    // Se 404, prova con formato semplificato (solo message)
+    // Se 404, prova con formati alternativi
     if (res.status === 404) {
-      console.log('404 received, trying simplified payload format...')
-      const simplePayload = { message: messageWithOrgId }
+      console.log('404 received, trying alternative payload formats...')
+      
+      // Prova 1: solo chatInput
+      let simplePayload = { chatInput: messageWithOrgId }
       res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(simplePayload)
       })
+      
+      // Se ancora 404, prova con 'message' invece di 'chatInput'
+      if (res.status === 404) {
+        console.log('Still 404, trying with "message" field...')
+        simplePayload = { message: messageWithOrgId } as any
+        res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(simplePayload)
+        })
+      }
     }
 
     if (!res.ok) {
