@@ -1,6 +1,9 @@
 import { BrandIdentityTabs } from "@/components/modules/strategy/BrandIdentityTabs"
+import { getBrandIdentity } from "@/server/queries/brand-identity"
 
-export default function BrainPage() {
+export default async function BrainPage() {
+  const brandIdentity = await getBrandIdentity()
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -8,7 +11,7 @@ export default function BrainPage() {
         <p className="text-muted-foreground">Brand Identity & Strategy</p>
       </div>
       
-      <BrandIdentityTabs />
+      <BrandIdentityTabs initialData={brandIdentity} />
     </div>
   )
 }

@@ -16,20 +16,27 @@ interface CompanyInfoData {
   founded_year: number | null
 }
 
-export function CompanyInfoForm() {
+export function CompanyInfoForm({ initialData }: { initialData?: any }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CompanyInfoData>({
-    company_name: '',
-    company_description: '',
-    website_url: '',
-    industry: '',
-    founded_year: null
+    company_name: initialData?.company_name || '',
+    company_description: initialData?.company_description || '',
+    website_url: initialData?.website_url || '',
+    industry: initialData?.industry || '',
+    founded_year: initialData?.founded_year || null
   })
 
-  // TODO: Load existing data from Supabase on mount
-  // useEffect(() => {
-  //   loadBrandIdentity()
-  // }, [])
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        company_name: initialData.company_name || '',
+        company_description: initialData.company_description || '',
+        website_url: initialData.website_url || '',
+        industry: initialData.industry || '',
+        founded_year: initialData.founded_year || null
+      })
+    }
+  }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,15 +16,27 @@ interface BrandKitData {
   brand_voice_description: string
 }
 
-export function BrandKitForm() {
+export function BrandKitForm({ initialData }: { initialData?: any }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<BrandKitData>({
-    primary_color: '',
-    secondary_color: '',
-    logo_url: '',
-    typography: '',
-    brand_voice_description: ''
+    primary_color: initialData?.primary_color || '',
+    secondary_color: initialData?.secondary_color || '',
+    logo_url: initialData?.logo_url || '',
+    typography: initialData?.typography || '',
+    brand_voice_description: initialData?.brand_voice_description || ''
   })
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        primary_color: initialData.primary_color || '',
+        secondary_color: initialData.secondary_color || '',
+        logo_url: initialData.logo_url || '',
+        typography: initialData.typography || '',
+        brand_voice_description: initialData.brand_voice_description || ''
+      })
+    }
+  }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,7 +142,7 @@ export function BrandKitForm() {
               placeholder="https://example.com/logo.png"
             />
             <p className="text-sm text-muted-foreground">
-              Carica il logo su Supabase Storage e incolla qui l'URL (funzionalità upload in arrivo)
+              Carica il logo su Supabase Storage e incolla qui l&apos;URL (funzionalità upload in arrivo)
             </p>
           </div>
 

@@ -5,7 +5,7 @@ import { CompanyInfoForm } from "./CompanyInfoForm"
 import { BrandKitForm } from "./BrandKitForm"
 import { BrandAnalystChat } from "./BrandAnalystChat"
 
-export function BrandIdentityTabs() {
+export function BrandIdentityTabs({ initialData }: { initialData: any }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
       {/* Left Column: Forms (2/3) */}
@@ -22,11 +22,11 @@ export function BrandIdentityTabs() {
           </TabsList>
           
           <TabsContent value="company">
-            <CompanyInfoForm />
+            <CompanyInfoForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="brandkit">
-            <BrandKitForm />
+            <BrandKitForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="tone">
