@@ -7,19 +7,49 @@ export async function updateCompanyInfo(formData: FormData) {
   const supabase = await createClient()
   
   // Get current user's organization_id
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
     throw new Error('Unauthorized')
   }
 
-  const { data: profile } = await supabase
+  let { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('organization_id')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.organization_id) {
-    throw new Error('Organization not found')
+  // Fallback: Create organization if missing
+  if (profileError || !profile?.organization_id) {
+    console.warn('Profile missing organization_id, creating one...')
+    
+    // Create a default organization
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .insert({ name: user.email?.split('@')[0] || 'My Organization' })
+      .select()
+      .single()
+    
+    if (orgError || !org) {
+      throw new Error('Failed to create organization')
+    }
+    
+    // Update or create profile with organization_id
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        organization_id: org.id,
+        full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
+        role: 'admin'
+      })
+      .select('organization_id')
+      .single()
+    
+    if (updateError || !updatedProfile) {
+      throw new Error('Failed to update profile')
+    }
+    
+    profile = updatedProfile
   }
 
   const company_name = formData.get('company_name') as string
@@ -73,19 +103,49 @@ export async function updateCompanyInfo(formData: FormData) {
 export async function updateBrandKit(formData: FormData) {
   const supabase = await createClient()
   
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
     throw new Error('Unauthorized')
   }
 
-  const { data: profile } = await supabase
+  let { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('organization_id')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.organization_id) {
-    throw new Error('Organization not found')
+  // Fallback: Create organization if missing
+  if (profileError || !profile?.organization_id) {
+    console.warn('Profile missing organization_id, creating one...')
+    
+    // Create a default organization
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .insert({ name: user.email?.split('@')[0] || 'My Organization' })
+      .select()
+      .single()
+    
+    if (orgError || !org) {
+      throw new Error('Failed to create organization')
+    }
+    
+    // Update or create profile with organization_id
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        organization_id: org.id,
+        full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
+        role: 'admin'
+      })
+      .select('organization_id')
+      .single()
+    
+    if (updateError || !updatedProfile) {
+      throw new Error('Failed to update profile')
+    }
+    
+    profile = updatedProfile
   }
 
   const primary_color = formData.get('primary_color') as string
