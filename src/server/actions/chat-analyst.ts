@@ -58,8 +58,11 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
 
     // 2. Prepare Payload for n8n Chat Trigger (webhook mode)
     // Chat Trigger expects: { message, sessionId?, metadata? }
+    // Include organization_id in message as hidden metadata (format: [ORG_ID:xxx])
+    const messageWithOrgId = `[ORG_ID:${profile.organization_id}] ${message}`
+    
     const payload = {
-      message,
+      message: messageWithOrgId,
       sessionId: `session-${user.id}`, // Keep conversation context per user
       metadata: {
         organization_id: profile.organization_id,
