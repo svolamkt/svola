@@ -16,18 +16,52 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       }
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('organization_id, full_name')
       .eq('id', user.id)
       .single()
 
+    // Fallback: Create organization if missing
     if (profileError || !profile?.organization_id) {
-      console.error('Profile error:', profileError)
-      return {
-        response: "Organizzazione non trovata. Contatta il supporto.",
-        error: true
+      console.warn('Profile missing organization_id, creating one...')
+      
+      // Create a default organization
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .insert({ name: user.email?.split('@')[0] || 'My Organization' })
+        .select()
+        .single()
+      
+      if (orgError || !org) {
+        console.error('Failed to create organization:', orgError)
+        return {
+          response: "Errore nella creazione dell'organizzazione. Riprova o contatta il supporto.",
+          error: true
+        }
       }
+      
+      // Update or create profile with organization_id
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          organization_id: org.id,
+          full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
+          role: 'admin'
+        })
+        .select('organization_id, full_name')
+        .single()
+      
+      if (updateError || !updatedProfile) {
+        console.error('Failed to update profile:', updateError)
+        return {
+          response: "Errore nell'aggiornamento del profilo. Riprova.",
+          error: true
+        }
+      }
+      
+      profile = updatedProfile
     }
 
     // 2. Prepare Payload for n8n (must match webhook expected format)
