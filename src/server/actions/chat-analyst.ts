@@ -56,24 +56,24 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       profile = updatedProfile
     }
 
-    // 2. Prepare Payload for n8n (must match webhook expected format)
+    // 2. Prepare Payload for n8n Chat Trigger (webhook mode)
+    // Chat Trigger expects: { message, sessionId?, metadata? }
     const payload = {
-      body: {
-        message,
+      message,
+      sessionId: `session-${user.id}`, // Keep conversation context per user
+      metadata: {
         organization_id: profile.organization_id,
         user_id: user.id,
         user_name: profile.full_name || 'User'
-      },
-      history // Pass context to keep memory
+      }
     }
 
-    // 3. Call n8n Webhook
-    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL
+    // 3. Call n8n Chat Trigger Webhook
+    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/fb166c84-71dc-4dfd-a585-87cbdef9aac9/chat'
 
     if (!webhookUrl) {
       console.warn('N8N_CHAT_WEBHOOK_URL not configured')
-      // Fallback mock response if no webhook is connected yet
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
       return {
         response: "⚠️ n8n Webhook non configurato. Configura `N8N_CHAT_WEBHOOK_URL` nelle variabili d'ambiente di Vercel.",
         action: null
@@ -88,15 +88,22 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.error('n8n webhook error:', res.status, errorText)
+      console.error('n8n chat trigger error:', res.status, errorText)
       return {
         response: `Errore dal server n8n (${res.status}). Verifica che il workflow sia attivo.`,
         error: true
       }
     }
     
+    // Chat Trigger returns the response directly (from "Respond to Chat" node)
     const data = await res.json()
-    return data // Expected format: { response: "...", action: "update_db" | "ask_more" }
+    // The response might be in data.text or data.response or just the string
+    const responseText = data?.text || data?.response || data?.output || JSON.stringify(data)
+    
+    return {
+      response: responseText,
+      action: data?.action || null
+    }
   } catch (error) {
     console.error('Error in sendMessageToAnalyst:', error)
     return {
