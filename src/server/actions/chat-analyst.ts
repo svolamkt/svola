@@ -64,6 +64,7 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     // Chat Trigger expects 'chatInput' field, not 'message'
     const payload = {
       chatInput: messageWithOrgId,
+      message: messageWithOrgId, // Add message field for standard webhook compatibility
       sessionId: `session-${user.id}`, // Keep conversation context per user
       metadata: {
         organization_id: profile.organization_id,
@@ -72,9 +73,9 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       }
     }
 
-    // 3. Call n8n Chat Trigger Webhook
-    // Updated webhook URL from user provided value (using workflow ID based URL)
-    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/bjSW53qgmDGMP5TZ/chat%20trigger/chat'
+    // 3. Call n8n Webhook (Standard Webhook Node)
+    // This is a stable URL that won't change even if workflow is updated
+    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/analyst'
 
     if (!webhookUrl) {
       console.warn('N8N_CHAT_WEBHOOK_URL not configured')
@@ -155,7 +156,27 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
     
     // The response might be in data.text or data.response or just the string
-    const responseText = data?.text || data?.response || data?.output || data?.message || JSON.stringify(data)
+    // With standard webhook + lastNode, we get the full output of the last node
+    // We need to extract the AI response text
+    
+    let responseText = '';
+    
+    // Check for standard AI agent output structure
+    if (data.output) {
+      responseText = data.output;
+    } else if (data.text) {
+      responseText = data.text;
+    } else if (data.response) {
+      responseText = data.response;
+    } else if (data.message) {
+      responseText = data.message;
+    } else if (Array.isArray(data) && data.length > 0) {
+        // Sometimes n8n returns an array of items
+        const item = data[0];
+        responseText = item.output || item.text || item.response || item.message || JSON.stringify(item);
+    } else {
+      responseText = JSON.stringify(data);
+    }
     
     return {
       response: responseText,
