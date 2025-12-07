@@ -26,35 +26,27 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     if (profileError || !profile?.organization_id) {
       console.warn('Profile missing organization_id, creating one...')
       
-      // Create a default organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({ name: user.email?.split('@')[0] || 'My Organization' })
-        .select()
-        .single()
+      const { data: orgId, error: rpcError } = await supabase
+        .rpc('create_user_organization', { 
+          org_name: user.email?.split('@')[0] || 'My Organization' 
+        })
       
-      if (orgError || !org) {
-        console.error('Failed to create organization:', orgError)
+      if (rpcError || !orgId) {
+        console.error('Failed to create organization:', rpcError)
         return {
           response: "Errore nella creazione dell'organizzazione. Riprova o contatta il supporto.",
           error: true
         }
       }
       
-      // Update or create profile with organization_id
-      const { data: updatedProfile, error: updateError } = await supabase
+      const { data: updatedProfile, error: fetchError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          organization_id: org.id,
-          full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
-          role: 'admin'
-        })
         .select('organization_id, full_name')
+        .eq('id', user.id)
         .single()
       
-      if (updateError || !updatedProfile) {
-        console.error('Failed to update profile:', updateError)
+      if (fetchError || !updatedProfile) {
+        console.error('Failed to fetch updated profile:', fetchError)
         return {
           response: "Errore nell'aggiornamento del profilo. Riprova.",
           error: true

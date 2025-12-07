@@ -22,31 +22,25 @@ export async function updateCompanyInfo(formData: FormData) {
   if (profileError || !profile?.organization_id) {
     console.warn('Profile missing organization_id, creating one...')
     
-    // Create a default organization
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: user.email?.split('@')[0] || 'My Organization' })
-      .select()
-      .single()
+    // Use RPC to create org and link profile securely
+    const { data: orgId, error: rpcError } = await supabase
+      .rpc('create_user_organization', { 
+        org_name: user.email?.split('@')[0] || 'My Organization' 
+      })
     
-    if (orgError || !org) {
-      throw new Error('Failed to create organization')
+    if (rpcError || !orgId) {
+      throw new Error('Failed to create organization: ' + rpcError?.message)
     }
     
-    // Update or create profile with organization_id
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        organization_id: org.id,
-        full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
-        role: 'admin'
-      })
-      .select('organization_id, full_name')
-      .single()
-    
-    if (updateError || !updatedProfile) {
-      throw new Error('Failed to update profile')
+    // Fetch the updated profile
+    const { data: updatedProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('organization_id, full_name')
+        .eq('id', user.id)
+        .single()
+        
+    if (fetchError || !updatedProfile) {
+       throw new Error('Failed to fetch updated profile')
     }
     
     profile = updatedProfile
@@ -118,31 +112,25 @@ export async function updateBrandKit(formData: FormData) {
   if (profileError || !profile?.organization_id) {
     console.warn('Profile missing organization_id, creating one...')
     
-    // Create a default organization
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: user.email?.split('@')[0] || 'My Organization' })
-      .select()
-      .single()
+    // Use RPC to create org and link profile securely
+    const { data: orgId, error: rpcError } = await supabase
+      .rpc('create_user_organization', { 
+        org_name: user.email?.split('@')[0] || 'My Organization' 
+      })
     
-    if (orgError || !org) {
-      throw new Error('Failed to create organization')
+    if (rpcError || !orgId) {
+      throw new Error('Failed to create organization: ' + rpcError?.message)
     }
     
-    // Update or create profile with organization_id
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        organization_id: org.id,
-        full_name: profile?.full_name || user.email?.split('@')[0] || 'User',
-        role: 'admin'
-      })
-      .select('organization_id, full_name')
-      .single()
-    
-    if (updateError || !updatedProfile) {
-      throw new Error('Failed to update profile')
+    // Fetch the updated profile
+    const { data: updatedProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('organization_id, full_name')
+        .eq('id', user.id)
+        .single()
+        
+    if (fetchError || !updatedProfile) {
+       throw new Error('Failed to fetch updated profile')
     }
     
     profile = updatedProfile
