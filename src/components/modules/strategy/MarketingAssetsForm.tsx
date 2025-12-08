@@ -113,7 +113,7 @@ export function MarketingAssetsForm({ initialData }: { initialData: BrandIdentit
               <Button type="button" onClick={addChannel} variant="outline">Aggiungi</Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-              {formData.channels.map((channel, i) => (
+              {formData.channels.map((channel: string, i: number) => (
                 <div key={i} className="flex items-center gap-2 p-2 bg-muted rounded border">
                   <span className="flex-1 text-sm">{channel}</span>
                   <button

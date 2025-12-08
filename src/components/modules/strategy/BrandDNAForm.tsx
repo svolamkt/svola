@@ -127,7 +127,7 @@ export function BrandDNAForm({ initialData }: { initialData: BrandIdentity | nul
               <Button type="button" onClick={addValue} variant="outline">Aggiungi</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              {formData.values.map((val, i) => (
+              {formData.values.map((val: string, i: number) => (
                 <Badge key={i} variant="secondary" className="gap-1">
                   {val}
                   <button
@@ -154,7 +154,7 @@ export function BrandDNAForm({ initialData }: { initialData: BrandIdentity | nul
               <Button type="button" onClick={addArchetype} variant="outline">Aggiungi</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              {formData.archetypes.map((arch, i) => (
+              {formData.archetypes.map((arch: string, i: number) => (
                 <Badge key={i} variant="outline" className="gap-1">
                   {arch}
                   <button

@@ -85,7 +85,7 @@ export function CompetitorsForm({ initialData }: { initialData: BrandIdentity | 
           <div className="space-y-2">
             <Label>Competitor Diretti</Label>
             <div className="space-y-3">
-              {formData.direct_competitors.map((competitor, i) => (
+              {formData.direct_competitors.map((competitor: Competitor, i: number) => (
                 <div key={i} className="p-3 border rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold">{competitor.name}</h4>

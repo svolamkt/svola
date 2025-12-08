@@ -108,7 +108,7 @@ export function ProductMatrixForm({ initialData }: { initialData: BrandIdentity 
               <Button type="button" onClick={addBenefit} variant="outline">Aggiungi</Button>
             </div>
             <ul className="space-y-2 mt-2">
-              {formData.benefits.map((benefit, i) => (
+              {formData.benefits.map((benefit: string, i: number) => (
                 <li key={i} className="flex items-center gap-2 p-2 bg-muted rounded">
                   <span className="flex-1">{benefit}</span>
                   <button

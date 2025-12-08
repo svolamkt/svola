@@ -94,7 +94,7 @@ export function MarketContextForm({ initialData }: { initialData: BrandIdentity 
               <Button type="button" onClick={addTrend} variant="outline">Aggiungi</Button>
             </div>
             <ul className="space-y-2 mt-2">
-              {formData.trends.map((trend, i) => (
+              {formData.trends.map((trend: string, i: number) => (
                 <li key={i} className="flex items-center gap-2 p-2 bg-muted rounded">
                   <span className="flex-1">{trend}</span>
                   <button type="button" onClick={() => removeTrend(i)} className="text-destructive">

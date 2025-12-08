@@ -111,7 +111,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
           <div className="space-y-2">
             <Label>Buyer Personas</Label>
             <div className="space-y-3">
-              {formData.personas.map((persona, i) => (
+              {formData.personas.map((persona: Persona, i: number) => (
                 <div key={i} className="p-3 border rounded-lg">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold">{persona.name}</h4>
@@ -157,7 +157,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
               <Button type="button" onClick={addPainPoint} variant="outline">Aggiungi</Button>
             </div>
             <ul className="space-y-2 mt-2">
-              {formData.pain_points.map((point, i) => (
+              {formData.pain_points.map((point: string, i: number) => (
                 <li key={i} className="flex items-center gap-2 p-2 bg-muted rounded">
                   <span className="flex-1">{point}</span>
                   <button type="button" onClick={() => removePainPoint(i)} className="text-destructive">
@@ -180,7 +180,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
               <Button type="button" onClick={addTrigger} variant="outline">Aggiungi</Button>
             </div>
             <ul className="space-y-2 mt-2">
-              {formData.triggers.map((trigger, i) => (
+              {formData.triggers.map((trigger: string, i: number) => (
                 <li key={i} className="flex items-center gap-2 p-2 bg-muted rounded">
                   <span className="flex-1">{trigger}</span>
                   <button type="button" onClick={() => removeTrigger(i)} className="text-destructive">
