@@ -10,7 +10,7 @@ export function ProductMatrixView({ data }: { data: BrandIdentity | null }) {
   const matrix = data?.product_matrix as any
 
   if (!matrix) {
-    return <div className="text-muted-foreground p-4">Nessun dato Prodotto disponibile.</div>
+    return <div className="text-muted-foreground p-4">Nessun dato Prodotto disponibile. Compila il form per avviare l'analisi.</div>
   }
 
   return (

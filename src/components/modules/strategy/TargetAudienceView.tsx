@@ -8,11 +8,15 @@ import { Users, Frown, Sparkles } from "lucide-react"
 type BrandIdentity = Database['public']['Tables']['brand_identity']['Row']
 
 export function TargetAudienceView({ data }: { data: BrandIdentity | null }) {
-  const target = data?.customer_persona as any
+  // Legge da target_audience (campo DB) o customer_persona (campo AI)
+  const target = (data?.target_audience || data?.customer_persona) as any
 
   if (!target) {
-    return <div className="text-muted-foreground p-4">Nessun dato Target disponibile.</div>
+    return <div className="text-muted-foreground p-4">Nessun dato Target disponibile. Compila il form per avviare l'analisi.</div>
   }
+
+  // Gestisce sia array di stringhe che array di oggetti {name, description}
+  const personas = target.personas || []
 
   return (
     <div className="space-y-6">
@@ -25,11 +29,23 @@ export function TargetAudienceView({ data }: { data: BrandIdentity | null }) {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {target.personas?.map((persona: string, i: number) => (
-              <div key={i} className="p-3 bg-muted/50 rounded-lg text-sm border-l-4 border-indigo-500">
-                {persona}
-              </div>
-            )) || <p className="text-muted-foreground">-</p>}
+            {personas.length > 0 ? personas.map((persona: any, i: number) => {
+              // Se è un oggetto con name e description
+              if (typeof persona === 'object' && persona.name) {
+                return (
+                  <div key={i} className="p-4 bg-muted/50 rounded-lg border-l-4 border-indigo-500">
+                    <h4 className="font-semibold text-sm mb-1">{persona.name}</h4>
+                    <p className="text-sm text-muted-foreground">{persona.description || '-'}</p>
+                  </div>
+                )
+              }
+              // Se è una stringa
+              return (
+                <div key={i} className="p-3 bg-muted/50 rounded-lg text-sm border-l-4 border-indigo-500">
+                  {persona}
+                </div>
+              )
+            }) : <p className="text-muted-foreground">-</p>}
           </div>
         </CardContent>
       </Card>

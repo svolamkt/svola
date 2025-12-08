@@ -11,7 +11,7 @@ export function MarketingAssetsView({ data }: { data: BrandIdentity | null }) {
   const perception = data?.brand_perception as any
 
   if (!assets && !perception) {
-    return <div className="text-muted-foreground p-4">Nessun dato Marketing disponibile.</div>
+    return <div className="text-muted-foreground p-4">Nessun dato Marketing disponibile. Compila il form per avviare l'analisi.</div>
   }
 
   return (

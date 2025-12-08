@@ -11,7 +11,7 @@ export function BrandDNAView({ data }: { data: BrandIdentity | null }) {
   const dna = data?.brand_dna as any
 
   if (!dna) {
-    return <div className="text-muted-foreground p-4">Nessun dato DNA disponibile. Chiedi all'AI di analizzare il brand.</div>
+    return <div className="text-muted-foreground p-4">Nessun dato DNA disponibile. Compila il form per avviare l'analisi.</div>
   }
 
   return (

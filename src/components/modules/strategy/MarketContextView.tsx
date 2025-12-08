@@ -7,10 +7,11 @@ import { TrendingUp, BarChart3, Globe } from "lucide-react"
 type BrandIdentity = Database['public']['Tables']['brand_identity']['Row']
 
 export function MarketContextView({ data }: { data: BrandIdentity | null }) {
-  const market = data?.market_context as any
+  // Legge da market_research (campo DB) o market_context (campo AI)
+  const market = (data?.market_research || data?.market_context) as any
 
   if (!market) {
-    return <div className="text-muted-foreground p-4">Nessun dato Mercato disponibile.</div>
+    return <div className="text-muted-foreground p-4">Nessun dato Mercato disponibile. Compila il form per avviare l'analisi.</div>
   }
 
   return (
