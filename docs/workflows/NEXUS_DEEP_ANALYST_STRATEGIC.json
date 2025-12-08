@@ -1,0 +1,249 @@
+{
+  "name": "Nexus Deep Analyst Strategic",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "604358c0-ee69-4e03-bd67-9f4f50dba13c",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Strategic Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "604358c0-ee69-4e03-bd67-9f4f50dba13c"
+    },
+    {
+      "id": "prepare-data",
+      "name": "Prepare Strategy Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "// Parse Strategic Payload\nconst body = $input.item.json.body || $input.item.json || {};\nconst vision = body.vision_input || {};\nconst assumptions = body.assumptions || {};\nconst objectives = body.objectives || '';\nconst orgId = body.organization_id;\n\n// Construct Context for Agents\nlet context = `ANALISI STRATEGICA PER: ${vision.company_name}\\n`;\ncontext += `STADIO: ${vision.stage} | TIPO: ${vision.business_type}\\n`;\ncontext += `VISIONE: ${vision.description}\\n`;\ncontext += `OBIETTIVO: ${objectives}\\n\\n`;\n\nif (vision.website_url) {\n  context += `ASSET DIGITALE: ${vision.website_url} (Fonte di Verità Primaria)\\n`;\n} else {\n  context += `ASSET DIGITALE: NESSUNO (Analisi basata su Idea e Mercato)\\n`;\n}\n\ncontext += `\\nIPOTESI CLIENTE (Da Validare):\\n`;\ncontext += `- Target Pensato: ${assumptions.target_audience}\\n`;\ncontext += `- Canali Pensati: ${assumptions.current_channels?.join(', ')}\\n`;\ncontext += `- Competitor Noti: ${assumptions.competitors_known}\\n`;\n\nreturn [{\n  json: {\n    context_message: context,\n    vision: vision,\n    assumptions: assumptions,\n    objectives: objectives,\n    organization_id: orgId,\n    has_website: !!vision.website_url\n  }\n}];"
+      }
+    },
+    {
+      "id": "truth-router",
+      "name": "Truth Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_website }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.context_message }}",
+        "options": {
+          "systemMessage": "Sei un Website Auditor. La tua UNICA fonte di verità è il sito web fornito. Usa il tool 'readWebsite'. Estrai: Brand DNA, Prodotti, Target (come appare dal sito). Se il sito è offline o vuoto, rispondi 'SITO_INACCESSIBILE'. Output: JSON strict."
+        }
+      },
+      "id": "agent-1-web",
+      "name": "Agent 1: Website Auditor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [700, -100]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.context_message }}",
+        "options": {
+          "systemMessage": "Sei un Concept Extractor. Non c'è un sito web. Analizza la descrizione dell'IDEA del cliente. Estrai: Keywords di settore, Categorie di mercato, Possibili competitor indiretti. Genera query di ricerca per validare l'idea. Output: JSON strict."
+        }
+      },
+      "id": "agent-1-concept",
+      "name": "Agent 1b: Concept Extractor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [700, 150]
+    },
+    {
+      "id": "merge-truth",
+      "name": "Merge Truth Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 0],
+      "parameters": {
+        "jsCode": "// Merge Logic\nconst items = $input.all();\nlet extractionData = {};\nlet source = 'unknown';\n\nfor (const item of items) {\n  const output = item.json.output || item.json;\n  // Simple JSON parse attempt if string\n  try {\n     const json = typeof output === 'string' ? JSON.parse(output.match(/\\{.*\\}/s)?.[0] || '{}') : output;\n     extractionData = { ...extractionData, ...json };\n     if (item.json.has_website) source = 'website';\n     else source = 'concept';\n  } catch (e) {}\n}\n\n// Pass context forward\nconst originalContext = $('Prepare Strategy Data').first().json;\n\nreturn [{\n  json: {\n    ...originalContext,\n    truth_data: extractionData,\n    truth_source: source\n  }\n}];"
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Analizza il mercato per: ' + $json.vision.description + ' nel settore ' + $json.vision.industry + '. Usa i dati estratti: ' + JSON.stringify($json.truth_data) }}",
+        "options": {
+          "systemMessage": "Sei un Market Investigator. Usa le keywords estratte per cercare su Google (simulato). Cerca: Trend reali 2024/2025, Competitor reali (non quelli citati dal cliente), Canali dove sta il target. Output: JSON con market_reality."
+        }
+      },
+      "id": "agent-2-market",
+      "name": "Agent 2: Market Investigator",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [1250, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Confronta le ipotesi del cliente con la realtà di mercato. Cliente: ' + JSON.stringify($json.assumptions) + '. Mercato: ' + JSON.stringify($json.agent2_market_analysis) }}",
+        "options": {
+          "systemMessage": "Sei un Strategic Challenger. Fai una GAP ANALYSIS. \n1. Se il cliente dice 'Facebook' ma il mercato dice 'TikTok', segnalalo.\n2. Se il cliente ignora un competitor forte, segnalalo.\n3. Genera il Brand Master File finale, includendo un campo 'strategic_gap' che spiega le divergenze.\nOutput: JSON Completo per Supabase."
+        }
+      },
+      "id": "agent-3-strategy",
+      "name": "Agent 3: Strategic Synthesizer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [1650, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.item.json.output || '';\nlet json = {};\ntry {\n  json = JSON.parse(output.match(/\\{.*\\}/s)?.[0]);\n} catch(e) {\n  json = { error: 'JSON Parse Error', raw: output };\n}\nreturn [{ json }];"
+      },
+      "id": "parse-final",
+      "name": "Parse Final JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 0]
+    },
+    {
+      "parameters": {
+        "tableId": "brand_identity",
+        "operation": "update",
+        "filters": {
+          "conditions": [{
+            "keyName": "organization_id",
+            "keyValue": "={{ $('Prepare Strategy Data').item.json.organization_id }}"
+          }]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "brand_dna", "fieldValue": "={{ $json.brand_dna }}" },
+            { "fieldId": "product_matrix", "fieldValue": "={{ $json.product_matrix }}" },
+            { "fieldId": "market_research", "fieldValue": "={{ $json.market_context }}" },
+            { "fieldId": "competitors", "fieldValue": "={{ $json.competitors_data }}" },
+            { "fieldId": "target_audience", "fieldValue": "={{ $json.customer_persona }}" },
+            { "fieldId": "marketing_assets", "fieldValue": "={{ $json.marketing_assets }}" },
+            { "fieldId": "swot_analysis", "fieldValue": "={{ $json.swot_analysis }}" },
+            { "fieldId": "brand_perception", "fieldValue": "={{ $json.brand_perception }}" },
+            { "fieldId": "confidence_notes", "fieldValue": "={{ $json.strategic_gap?.notes || [] }}" },
+            { "fieldId": "warnings", "fieldValue": "={{ $json.strategic_gap?.warnings || [] }}" },
+            { "fieldId": "next_steps", "fieldValue": "={{ $json.next_steps }}" },
+            { "fieldId": "executive_summary", "fieldValue": "={{ $json.executive_summary }}" },
+            { "fieldId": "maturity_score", "fieldValue": "={{ $json.maturity_score }}" },
+            { "fieldId": "awareness_level", "fieldValue": "={{ $('Prepare Strategy Data').item.json.assumptions.awareness_level }}" }
+          ]
+        }
+      },
+      "id": "update-db",
+      "name": "Update DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2100, 0],
+      "credentials": {
+        "supabaseApi": {
+          "id": "83VCo9M9FA31DEvb",
+          "name": "SUPABASESVOLA"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Analisi Strategica Completata' } }}"
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2300, 0]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "gemini-model",
+      "name": "Google Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1250, 250],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "readWebsite",
+        "toolDescription": "Legge contenuto web da URL",
+        "jsCode": "const url = $input.item.json.vision?.website_url || $input.item.json.url; if(!url) return 'No URL'; return 'Simulazione Contenuto Sito: Azienda Innovativa';"
+      },
+      "id": "tool-website",
+      "name": "Tool: Read Website",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [700, -300]
+    }
+  ],
+  "connections": {
+    "Strategic Webhook": {
+      "main": [[{ "node": "Prepare Strategy Data", "type": "main", "index": 0 }]]
+    },
+    "Prepare Strategy Data": {
+      "main": [[{ "node": "Truth Router", "type": "main", "index": 0 }]]
+    },
+    "Truth Router": {
+      "main": [
+        [{ "node": "Agent 1: Website Auditor", "type": "main", "index": 0 }],
+        [{ "node": "Agent 1b: Concept Extractor", "type": "main", "index": 0 }]
+      ]
+    },
+    "Agent 1: Website Auditor": {
+      "main": [[{ "node": "Merge Truth Sources", "type": "main", "index": 0 }]]
+    },
+    "Agent 1b: Concept Extractor": {
+      "main": [[{ "node": "Merge Truth Sources", "type": "main", "index": 0 }]]
+    },
+    "Merge Truth Sources": {
+      "main": [[{ "node": "Agent 2: Market Investigator", "type": "main", "index": 0 }]]
+    },
+    "Agent 2: Market Investigator": {
+      "main": [[{ "node": "Agent 3: Strategic Synthesizer", "type": "main", "index": 0 }]]
+    },
+    "Agent 3: Strategic Synthesizer": {
+      "main": [[{ "node": "Parse Final JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse Final JSON": {
+      "main": [[{ "node": "Update DB", "type": "main", "index": 0 }]]
+    },
+    "Update DB": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "Google Gemini Model": {
+      "ai_languageModel": [
+        [{ "node": "Agent 1: Website Auditor", "type": "ai_languageModel", "index": 0 }],
+        [{ "node": "Agent 1b: Concept Extractor", "type": "ai_languageModel", "index": 0 }],
+        [{ "node": "Agent 2: Market Investigator", "type": "ai_languageModel", "index": 0 }],
+        [{ "node": "Agent 3: Strategic Synthesizer", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Tool: Read Website": {
+      "ai_tool": [[{ "node": "Agent 1: Website Auditor", "type": "ai_tool", "index": 0 }]]
+    }
+  }
+}

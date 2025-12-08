@@ -3,12 +3,27 @@
 import { createClient } from '@/lib/supabase/server'
 
 interface BrandAnalysisFormData {
-  website_url: string
-  company_name?: string
-  company_description?: string
+  // Core Identità
+  company_name: string
+  website_url?: string // Now optional
   industry?: string
-  target_audience?: string
-  competitors?: string
+  country?: string
+  
+  // Strategic Inputs
+  company_description: string
+  business_type: string
+  growth_stage: string
+  
+  // Context
+  awareness_level?: 'low' | 'medium' | 'high'
+  target_audience_idea?: string
+  current_channels?: string[]
+  
+  // Objectives
+  key_objectives?: string
+  competitors_known?: string
+  
+  // Legacy/Fallback
   additional_info?: string
 }
 
@@ -63,21 +78,41 @@ export async function submitBrandAnalysis(formData: BrandAnalysisFormData) {
       profile = updatedProfile
     }
 
-    // 2. Prepare Payload for n8n Webhook
+    // 2. Prepare Payload for n8n Webhook - STRATEGIC FORMAT
     const payload = {
       organization_id: profile.organization_id,
       user_id: user.id,
       user_name: profile.full_name || 'User',
-      form_data: {
-        website_url: formData.website_url,
-        company_name: formData.company_name || '',
-        company_description: formData.company_description || '',
-        industry: formData.industry || '',
-        target_audience: formData.target_audience || '',
-        competitors: formData.competitors || '',
-        additional_info: formData.additional_info || ''
+      
+      // The Core Vision (User's Truth)
+      vision_input: {
+        company_name: formData.company_name,
+        description: formData.company_description,
+        website_url: formData.website_url || null,
+        business_type: formData.business_type,
+        stage: formData.growth_stage,
+        industry: formData.industry || 'Generico',
+        country: formData.country || 'Italia'
       },
-      trigger: 'form_submit',
+      
+      // The Assumptions (To be Challenged)
+      assumptions: {
+        target_audience: formData.target_audience_idea,
+        current_channels: formData.current_channels,
+        competitors_known: formData.competitors_known,
+        awareness_level: formData.awareness_level || 'medium'
+      },
+      
+      // The Goals (North Star)
+      objectives: formData.key_objectives,
+      
+      // Legacy flat structure for simple nodes
+      form_data: {
+        ...formData,
+        website_url: formData.website_url || ''
+      },
+      
+      trigger: 'strategic_analysis_submit',
       timestamp: new Date().toISOString()
     }
 
@@ -93,7 +128,7 @@ export async function submitBrandAnalysis(formData: BrandAnalysisFormData) {
       }
     }
 
-    console.log('Calling n8n webhook for brand analysis:', webhookUrl)
+    console.log('Calling n8n webhook for strategic analysis:', webhookUrl)
     console.log('Payload:', JSON.stringify(payload, null, 2))
 
     const res = await fetch(webhookUrl, {
