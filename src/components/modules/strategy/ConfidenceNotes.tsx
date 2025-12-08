@@ -50,7 +50,7 @@ export function ConfidenceNotes({ notes }: ConfidenceNotesProps) {
           <div key={idx} className="flex items-start justify-between text-sm p-2 rounded-md bg-muted/30">
             <div className="space-y-1">
               <div className="font-medium capitalize text-foreground/90">
-                {note.field.replace('_', ' ')}
+                {(note.field || 'Generale').replace(/_/g, ' ')}
               </div>
               <p className="text-muted-foreground text-xs leading-relaxed">
                 {note.note}
