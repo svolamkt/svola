@@ -56,16 +56,16 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       profile = updatedProfile
     }
 
-    // 2. Prepare Payload for n8n Chat Trigger (webhook mode)
-    // Chat Trigger in webhook mode expects: { chatInput } or { message } or { chatInput, sessionId, metadata }
+    // 2. Prepare Payload for n8n Webhook
     // Include organization_id in message as hidden metadata (format: [ORG_ID:xxx])
     const messageWithOrgId = `[ORG_ID:${profile.organization_id}] ${message}`
     
-    // Chat Trigger expects 'chatInput' field, not 'message'
+    // Webhook expects both message and chatInput for compatibility
     const payload = {
+      message: messageWithOrgId,
       chatInput: messageWithOrgId,
-      message: messageWithOrgId, // Add message field for standard webhook compatibility
       sessionId: `session-${user.id}`, // Keep conversation context per user
+      organization_id: profile.organization_id,
       metadata: {
         organization_id: profile.organization_id,
         user_id: user.id,
@@ -75,7 +75,7 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
 
     // 3. Call n8n Webhook (Standard Webhook Node)
     // This is a stable URL that won't change even if workflow is updated
-    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/analyst'
+    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/chat-analyst'
 
     if (!webhookUrl) {
       console.warn('N8N_CHAT_WEBHOOK_URL not configured')
@@ -121,13 +121,13 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.error('n8n chat trigger error:', res.status, errorText)
+      console.error('n8n webhook error:', res.status, errorText)
       
       // Dettagli dell'errore per il frontend
       let errorMessage = `Errore ${res.status} dal server n8n`
       
       if (res.status === 404) {
-        errorMessage = `Errore 404: Webhook non trovato.\n\nVerifica che:\n- Il workflow "Nexus Deep Analyst" (ID: bjSW53qgmDGMP5TZ) sia attivo in n8n\n- L'URL del webhook sia corretto\n- Il nodo Chat Trigger sia configurato in modalità "webhook"\n\nURL tentato: ${webhookUrl}\n\nPer ottenere l'URL corretto:\n1. Apri il workflow in n8n\n2. Clicca sul nodo "Chat Trigger"\n3. Copia l'URL del webhook mostrato\n4. Aggiorna la variabile N8N_CHAT_WEBHOOK_URL in Vercel`
+        errorMessage = `Errore 404: Webhook non trovato.\n\nVerifica che:\n- Il workflow "Nexus Deep Analyst" (ID: bjSW53qgmDGMP5TZ) sia attivo in n8n\n- L'URL del webhook sia corretto\n- Il nodo Webhook sia configurato correttamente\n\nURL tentato: ${webhookUrl}\n\nPer ottenere l'URL corretto:\n1. Apri il workflow in n8n\n2. Clicca sul nodo "Chat Webhook"\n3. Copia l'URL del webhook mostrato\n4. Aggiorna la variabile N8N_CHAT_WEBHOOK_URL in Vercel`
       } else if (res.status === 500) {
         errorMessage = `Errore 500: Errore interno del server n8n.\n\nDettagli: ${errorText.substring(0, 300)}`
       } else {
@@ -142,7 +142,7 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       }
     }
     
-    // Chat Trigger returns the response directly (from "Respond to Chat" node)
+    // Webhook returns JSON response from "Respond to Webhook" node
     let data
     try {
       data = await res.json()
@@ -155,28 +155,8 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       }
     }
     
-    // The response might be in data.text or data.response or just the string
-    // With standard webhook + lastNode, we get the full output of the last node
-    // We need to extract the AI response text
-    
-    let responseText = '';
-    
-    // Check for standard AI agent output structure
-    if (data.output) {
-      responseText = data.output;
-    } else if (data.text) {
-      responseText = data.text;
-    } else if (data.response) {
-      responseText = data.response;
-    } else if (data.message) {
-      responseText = data.message;
-    } else if (Array.isArray(data) && data.length > 0) {
-        // Sometimes n8n returns an array of items
-        const item = data[0];
-        responseText = item.output || item.text || item.response || item.message || JSON.stringify(item);
-    } else {
-      responseText = JSON.stringify(data);
-    }
+    // The response is in data.response (from Respond to Webhook node)
+    const responseText = data?.response || data?.text || data?.output || data?.message || JSON.stringify(data)
     
     return {
       response: responseText,
