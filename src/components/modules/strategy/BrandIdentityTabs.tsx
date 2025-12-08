@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CompanyInfoForm } from "./CompanyInfoForm"
 import { BrandKitForm } from "./BrandKitForm"
-import { BrandAnalystChat } from "./BrandAnalystChat"
+import { BrandAnalysisForm } from "./BrandAnalysisForm"
 import { BrandDNAView } from "./BrandDNAView"
 import { ProductMatrixView } from "./ProductMatrixView"
 import { TargetAudienceView } from "./TargetAudienceView"
@@ -71,7 +71,7 @@ export function BrandIdentityTabs({ initialData }: BrandIdentityTabsProps) {
 
       {/* Right Column: AI Analyst (1/3) */}
       <div className="lg:col-span-1 h-full">
-        <BrandAnalystChat />
+        <BrandAnalysisForm />
       </div>
     </div>
   )
