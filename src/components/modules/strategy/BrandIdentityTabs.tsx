@@ -3,7 +3,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CompanyInfoForm } from "./CompanyInfoForm"
 import { BrandKitForm } from "./BrandKitForm"
-import { BrandAnalysisForm } from "./BrandAnalysisForm"
+import { AdaptiveBrandAnalysisForm } from "./AdaptiveBrandAnalysisForm"
+import { AnalysisResultsView } from "./AnalysisResultsView"
 import { BrandDNAForm } from "./BrandDNAForm"
 import { ProductMatrixForm } from "./ProductMatrixForm"
 import { TargetAudienceForm } from "./TargetAudienceForm"
@@ -23,8 +24,9 @@ export function BrandIdentityTabs({ initialData }: BrandIdentityTabsProps) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
       {/* Left Column: Forms/Views (2/3) */}
       <div className="lg:col-span-2 overflow-auto pr-2">
-        <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 mb-4 h-auto flex-wrap">
+        <Tabs defaultValue="results" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 mb-4 h-auto flex-wrap">
+            <TabsTrigger value="results" className="bg-primary/5 data-[state=active]:bg-primary/10 text-primary font-medium">✨ Risultati</TabsTrigger>
             <TabsTrigger value="company">Azienda</TabsTrigger>
             <TabsTrigger value="brandkit">Brand Kit</TabsTrigger>
             <TabsTrigger value="dna">DNA</TabsTrigger>
@@ -35,6 +37,10 @@ export function BrandIdentityTabs({ initialData }: BrandIdentityTabsProps) {
             <TabsTrigger value="assets">Assets</TabsTrigger>
           </TabsList>
           
+          <TabsContent value="results">
+            <AnalysisResultsView organizationId={initialData?.organization_id || ''} />
+          </TabsContent>
+
           <TabsContent value="company">
             <CompanyInfoForm initialData={initialData} />
           </TabsContent>
@@ -71,7 +77,7 @@ export function BrandIdentityTabs({ initialData }: BrandIdentityTabsProps) {
 
       {/* Right Column: AI Analyst (1/3) */}
       <div className="lg:col-span-1 h-full">
-        <BrandAnalysisForm />
+        <AdaptiveBrandAnalysisForm initialData={initialData} />
       </div>
     </div>
   )

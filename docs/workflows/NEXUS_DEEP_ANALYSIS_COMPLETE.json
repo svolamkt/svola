@@ -1,0 +1,623 @@
+{
+  "name": "Nexus Deep Analysis Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deep-analysis",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "604358c0-ee69-4e03-bd67-9f4f50dba13c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Data - Estrae informazioni dal webhook body\nconst body = $input.item.json.body || $input.item.json;\n\nconst websiteUrl = body.website_url || body.url || '';\nconst companyName = body.company_name || body.companyName || '';\nconst industry = body.industry || '';\nconst companyDescription = body.company_description || body.description || '';\nconst organizationId = body.organization_id || body.org_id || '';\n\n// Costruisce il contesto per gli agenti\nconst context = {\n  website_url: websiteUrl,\n  company_name: companyName,\n  industry: industry,\n  company_description: companyDescription,\n  organization_id: organizationId,\n  form_data: body.form_data || body\n};\n\nreturn {\n  json: context\n};"
+      },
+      "id": "prepare-data",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message || 'Analizza il sito web: ' + $json.website_url }}",
+        "options": {
+          "systemMessage": "Sei un esperto Web Analyst specializzato in analisi approfondita di siti web.\n\nIl tuo compito è analizzare il sito web fornito in modo completo e professionale.\n\nIMPORTANTE:\n- Analizza SOLO il contenuto reale del sito web\n- NON inventare informazioni\n- Se una informazione non è chiara dal sito, indica 'Da approfondire'\n- Estrai: meta tag, schema.org, Open Graph, struttura navigazione, CTA, form, SEO keywords\n- Analizza il funnel di conversione\n- Identifica il tone of voice dal contenuto\n\nOutput: JSON con struttura:\n{\n  \"website_analysis\": {\n    \"meta_tags\": {},\n    \"structure\": {},\n    \"cta\": [],\n    \"funnel\": \"\",\n    \"seo_keywords\": [],\n    \"tone_of_voice\": \"\"\n  },\n  \"content_summary\": \"\"\n}"
+        }
+      },
+      "id": "agent-1",
+      "name": "Agent 1: Website Deep Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [480, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini-1",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [480, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "readWebsite",
+        "description": "Legge e analizza il contenuto completo di un sito web tramite URL. Estrae testo, meta tag, titoli, descrizioni e contenuto principale. Passa l'URL come parametro 'input' o 'url'. IMPORTANTE: Analizza SOLO il contenuto del sito fornito, non inventare informazioni.",
+        "jsCode": "const url = inputObject.url || inputObject.input || '';\nif (!url) return { error: 'No URL provided' };\n\nconst urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);\nconst baseUrl = `${urlObj.protocol}//${urlObj.host}`;\n\ntry {\n  const response = await fetch(urlObj.href, {\n    headers: {\n      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'\n    }\n  });\n  \n  if (!response.ok) {\n    return { error: `HTTP ${response.status}: ${response.statusText}` };\n  }\n  \n  const html = await response.text();\n  \n  // Estrae meta tag\n  const titleMatch = html.match(/<title[^>]*>([^<]+)<\\/title>/i);\n  const title = titleMatch ? titleMatch[1].trim() : '';\n  \n  const descMatch = html.match(/<meta[^>]*name=[\"']description[\"'][^>]*content=[\"']([^\"']+)[\"']/i);\n  const description = descMatch ? descMatch[1].trim() : '';\n  \n  // Estrae H1 e H2\n  const h1Matches = html.match(/<h1[^>]*>([^<]+)<\\/h1>/gi) || [];\n  const h2Matches = html.match(/<h2[^>]*>([^<]+)<\\/h2>/gi) || [];\n  const h1s = h1Matches.map(h => h.replace(/<[^>]*>/g, '').trim()).slice(0, 5);\n  const h2s = h2Matches.map(h => h.replace(/<[^>]*>/g, '').trim()).slice(0, 10);\n  \n  // Rimuove script, style, nav, footer, header\n  let cleanHtml = html\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<nav[^>]*>[\\s\\S]*?<\\/nav>/gi, '')\n    .replace(/<footer[^>]*>[\\s\\S]*?<\\/footer>/gi, '')\n    .replace(/<header[^>]*>[\\s\\S]*?<\\/header>/gi, '');\n  \n  // Estrae testo principale\n  const text = cleanHtml\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 20000);\n  \n  return {\n    url: urlObj.href,\n    baseUrl: baseUrl,\n    meta: {\n      title: title,\n      description: description\n    },\n    headings: {\n      h1: h1s,\n      h2: h2s\n    },\n    content: text,\n    contentLength: text.length\n  };\n} catch (e) {\n  return { error: `Error reading website: ${e.message}` };\n}"
+      },
+      "id": "tool-read-website",
+      "name": "Read Website Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Agent 1 output con dati originali\nconst agent1Output = $input.item.json.output || $input.item.json;\nconst originalData = $('Prepare Data').item.json;\n\nreturn {\n  json: {\n    ...originalData,\n    agent1_website_analysis: agent1Output\n  }\n};"
+      },
+      "id": "merge-agent-1",
+      "name": "Merge Agent 1 Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Trova e analizza i competitor diretti per: ' + $json.company_name + ' nel settore ' + $json.industry + '. Cerca competitor simili e analizza i loro siti web.' }}",
+        "options": {
+          "systemMessage": "Sei un Competitive Intelligence Analyst esperto.\n\nIl tuo compito è:\n1. Trovare i competitor diretti dell'azienda fornita\n2. Analizzare i loro siti web (usando readWebsite tool)\n3. Confrontare servizi, prezzi, positioning\n4. Identificare punti di forza e debolezze\n\nIMPORTANTE:\n- Cerca competitor reali nel settore indicato\n- Analizza SOLO informazioni presenti sui loro siti\n- NON inventare dati\n\nOutput: JSON con struttura:\n{\n  \"competitors\": [\n    {\n      \"name\": \"\",\n      \"website\": \"\",\n      \"strengths\": [],\n      \"weaknesses\": [],\n      \"pricing\": \"\",\n      \"positioning\": \"\"\n    }\n  ],\n  \"competitive_analysis\": \"\"\n}"
+        }
+      },
+      "id": "agent-2",
+      "name": "Agent 2: Competitor Intelligence",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [960, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini-2",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [960, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "googleSearch",
+        "description": "Cerca informazioni su Google. Passa la query di ricerca come parametro 'query' o 'input'. Restituisce risultati di ricerca con titoli, snippet e URL.",
+        "jsCode": "// NOTA: Questo è un placeholder. In produzione, usa Google Custom Search API o SerpApi\nconst query = inputObject.query || inputObject.input || '';\nif (!query) return { error: 'No search query provided' };\n\n// Placeholder - in produzione implementare con Google Custom Search API\nreturn {\n  query: query,\n  results: [\n    {\n      title: 'Risultato di ricerca per: ' + query,\n      snippet: 'Implementare con Google Custom Search API per risultati reali',\n      url: ''\n    }\n  ],\n  note: 'Implementare Google Custom Search API o SerpApi per risultati reali'\n};"
+      },
+      "id": "tool-google-search",
+      "name": "Google Search Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [1160, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Agent 2 output\nconst agent2Output = $input.item.json.output || $input.item.json;\nconst previousData = $('Merge Agent 1 Data').item.json;\n\nreturn {\n  json: {\n    ...previousData,\n    agent2_competitor_analysis: agent2Output\n  }\n};"
+      },
+      "id": "merge-agent-2",
+      "name": "Merge Agent 2 Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Analizza il mercato e i trend per il settore: ' + $json.industry + '. Cerca dimensioni del mercato, trend, opportunità e minacce.' }}",
+        "options": {
+          "systemMessage": "Sei un Market Research Analyst esperto.\n\nIl tuo compito è:\n1. Analizzare il mercato del settore fornito\n2. Identificare trend attuali e futuri\n3. Stimare dimensioni del mercato (se possibile)\n4. Identificare opportunità e minacce\n5. Cercare news e articoli recenti sul settore\n\nIMPORTANTE:\n- Basati su dati reali quando possibile\n- Indica quando le stime sono approssimative\n- Cita fonti se disponibili\n\nOutput: JSON con struttura:\n{\n  \"market_size\": \"\",\n  \"growth_rate\": \"\",\n  \"trends\": [],\n  \"opportunities\": [],\n  \"threats\": [],\n  \"market_insights\": \"\"\n}"
+        }
+      },
+      "id": "agent-3",
+      "name": "Agent 3: Market Researcher",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [1440, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini-3",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1440, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Agent 3 output\nconst agent3Output = $input.item.json.output || $input.item.json;\nconst previousData = $('Merge Agent 2 Data').item.json;\n\nreturn {\n  json: {\n    ...previousData,\n    agent3_market_research: agent3Output\n  }\n};"
+      },
+      "id": "merge-agent-3",
+      "name": "Merge Agent 3 Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Analizza la percezione del brand ' + $json.company_name + ' online. Cerca reviews, sentiment, menzioni e percezione del pubblico.' }}",
+        "options": {
+          "systemMessage": "Sei un Brand Perception Analyst esperto.\n\nIl tuo compito è:\n1. Analizzare come il brand è percepito online\n2. Cercare reviews e feedback (se disponibili)\n3. Analizzare sentiment generale\n4. Identificare pain points comuni nel settore\n5. Analizzare gap tra brand promise e reality\n\nIMPORTANTE:\n- Basati su dati reali quando disponibili\n- Se non trovi reviews, indica 'Dati non disponibili'\n- Analizza sentiment in modo obiettivo\n\nOutput: JSON con struttura:\n{\n  \"sentiment\": \"\",\n  \"review_score\": 0,\n  \"review_count\": 0,\n  \"key_themes\": [],\n  \"pain_points\": [],\n  \"reputation_gaps\": [],\n  \"perception_analysis\": \"\"\n}"
+        }
+      },
+      "id": "agent-4",
+      "name": "Agent 4: Brand Perception Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [1920, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini-4",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1920, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Agent 4 output\nconst agent4Output = $input.item.json.output || $input.item.json;\nconst previousData = $('Merge Agent 3 Data').item.json;\n\nreturn {\n  json: {\n    ...previousData,\n    agent4_brand_perception: agent4Output\n  }\n};"
+      },
+      "id": "merge-agent-4",
+      "name": "Merge Agent 4 Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Sintetizza tutti i dati raccolti e genera il Brand Master File completo per: ' + $json.company_name }}",
+        "options": {
+          "systemMessage": "Sei un Chief Strategy Officer esperto. Il tuo compito è sintetizzare tutti i dati raccolti e generare un Brand Master File completo e professionale.\n\nHai a disposizione:\n- Analisi del sito web (Agent 1)\n- Analisi competitor (Agent 2)\n- Ricerca di mercato (Agent 3)\n- Analisi percezione brand (Agent 4)\n\nGenera un JSON completo con questa struttura ESATTA:\n\n{\n  \"brand_dna\": {\n    \"purpose\": \"\",\n    \"mission\": \"\",\n    \"values\": [],\n    \"archetypes\": [],\n    \"tone_of_voice\": \"\"\n  },\n  \"product_matrix\": {\n    \"value_proposition\": \"\",\n    \"usp\": \"\",\n    \"benefits\": [],\n    \"pricing_strategy\": \"\",\n    \"differentiators\": []\n  },\n  \"customer_persona\": {\n    \"personas\": [],\n    \"pain_points\": [],\n    \"triggers\": [],\n    \"buying_journey\": {}\n  },\n  \"market_context\": {\n    \"market_size\": \"\",\n    \"growth_rate\": \"\",\n    \"trends\": [],\n    \"opportunities\": [],\n    \"threats\": []\n  },\n  \"competitors_data\": {\n    \"direct_competitors\": [],\n    \"positioning_map\": \"\",\n    \"competitive_advantages\": [],\n    \"competitive_threats\": []\n  },\n  \"brand_perception\": {\n    \"sentiment\": \"\",\n    \"review_score\": 0,\n    \"review_count\": 0,\n    \"key_themes\": [],\n    \"reputation_gaps\": []\n  },\n  \"marketing_assets\": {\n    \"funnel\": \"\",\n    \"channels\": [],\n    \"content_strategy\": \"\",\n    \"seo_keywords\": [],\n    \"cta_strategy\": []\n  },\n  \"swot_analysis\": {\n    \"strengths\": [],\n    \"weaknesses\": [],\n    \"opportunities\": [],\n    \"threats\": []\n  },\n  \"strategic_recommendations\": {\n    \"immediate_actions\": [],\n    \"short_term_goals\": [],\n    \"long_term_vision\": [],\n    \"risks_to_mitigate\": [],\n    \"opportunities_to_seize\": []\n  }\n}\n\nIMPORTANTE:\n- Tutti i testi devono essere in ITALIANO\n- Non inventare dati, usa solo informazioni raccolte\n- Se un dato non è disponibile, usa array vuoti o stringhe vuote\n- Genera SOLO il JSON, niente altro testo"
+        }
+      },
+      "id": "agent-5",
+      "name": "Agent 5: Strategic Synthesizer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [2400, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "google-gemini-5",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2400, 200],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "H1dWggEz3kfTfkhx",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse e valida il JSON finale\nconst agent5Output = $input.item.json.output || $input.item.json.text || $input.item.json;\n\nlet parsedData;\n\ntry {\n  // Rimuove markdown code blocks se presenti\n  const cleanOutput = agent5Output\n    .replace(/```json\\s*/g, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n  \n  parsedData = JSON.parse(cleanOutput);\n} catch (e) {\n  return {\n    json: {\n      error: 'Failed to parse JSON from Agent 5',\n      raw_output: agent5Output,\n      parse_error: e.message\n    }\n  };\n}\n\n// Estrae organization_id\nconst orgId = $('Prepare Data').item.json.organization_id;\n\nreturn {\n  json: {\n    organization_id: orgId,\n    brand_master_file: parsedData\n  }\n};"
+      },
+      "id": "parse-final-json",
+      "name": "Parse & Validate Final JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-org-id",
+              "leftValue": "={{ $json.organization_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-org-id-final",
+      "name": "Check Organization ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2880, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "brand_identity",
+        "id": "={{ $json.organization_id }}",
+        "fields": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "swot_analysis": "={{ $json.brand_master_file.swot_analysis }}",
+            "market_research": "={{ $json.brand_master_file.market_context }}",
+            "competitors": "={{ $json.brand_master_file.competitors_data }}",
+            "target_audience": "={{ $json.brand_master_file.customer_persona }}",
+            "tone_of_voice": "={{ JSON.stringify($json.brand_master_file.brand_dna) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "supabase-update",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3120, 0],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Analisi completata con successo', organization_id: $json.organization_id } }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3360, 0]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "Agent 1: Website Deep Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 1: Website Deep Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Merge Agent 1 Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini Chat Model",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Read Website Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent 2: Competitor Intelligence",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Agent 3: Market Researcher",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Agent 4: Brand Perception Analyzer",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Agent 5: Strategic Synthesizer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Website Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent 2: Competitor Intelligence",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Agent 1 Data": {
+      "main": [
+        [
+          {
+            "node": "Agent 2: Competitor Intelligence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 2: Competitor Intelligence": {
+      "main": [
+        [
+          {
+            "node": "Merge Agent 2 Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini Chat Model",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Read Website Tool",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Google Search Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Agent 2 Data": {
+      "main": [
+        [
+          {
+            "node": "Agent 3: Market Researcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 3: Market Researcher": {
+      "main": [
+        [
+          {
+            "node": "Merge Agent 3 Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini Chat Model",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Google Search Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Agent 3 Data": {
+      "main": [
+        [
+          {
+            "node": "Agent 4: Brand Perception Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 4: Brand Perception Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Merge Agent 4 Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini Chat Model",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Google Search Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Agent 4 Data": {
+      "main": [
+        [
+          {
+            "node": "Agent 5: Strategic Synthesizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 5: Strategic Synthesizer": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate Final JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Gemini Chat Model",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate Final JSON": {
+      "main": [
+        [
+          {
+            "node": "Check Organization ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Organization ID": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-08T12:00:00.000Z",
+  "versionId": "1"
+}
+
