@@ -58,14 +58,14 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
 
     // 2. Prepare Payload for n8n Webhook
     // Include organization_id in message as hidden metadata (format: [ORG_ID:xxx])
+    // Also include it directly in the body for easier extraction
     const messageWithOrgId = `[ORG_ID:${profile.organization_id}] ${message}`
     
-    // Webhook expects both message and chatInput for compatibility
+    // Webhook payload - simplified structure
     const payload = {
       message: messageWithOrgId,
-      chatInput: messageWithOrgId,
+      organization_id: profile.organization_id, // Direct access for easier extraction
       sessionId: `session-${user.id}`, // Keep conversation context per user
-      organization_id: profile.organization_id,
       metadata: {
         organization_id: profile.organization_id,
         user_id: user.id,
@@ -74,8 +74,8 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     }
 
     // 3. Call n8n Webhook (Standard Webhook Node)
-    // This is a stable URL that won't change even if workflow is updated
-    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/chat-analyst'
+    // URL stabile basato sul webhookId - NON cambia mai a meno di eliminare il nodo webhook
+    const webhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'https://n8n.srv1054743.hstgr.cloud/webhook/604358c0-ee69-4e03-bd67-9f4f50dba13c'
 
     if (!webhookUrl) {
       console.warn('N8N_CHAT_WEBHOOK_URL not configured')
@@ -89,35 +89,11 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
     console.log('Calling n8n webhook:', webhookUrl)
     console.log('Payload:', JSON.stringify(payload, null, 2))
 
-    let res = await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-
-    // Se 404, prova con formati alternativi
-    if (res.status === 404) {
-      console.log('404 received, trying alternative payload formats...')
-      
-      // Prova 1: solo chatInput
-      let simplePayload = { chatInput: messageWithOrgId }
-      res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(simplePayload)
-      })
-      
-      // Se ancora 404, prova con 'message' invece di 'chatInput'
-      if (res.status === 404) {
-        console.log('Still 404, trying with "message" field...')
-        simplePayload = { message: messageWithOrgId } as any
-        res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(simplePayload)
-        })
-      }
-    }
 
     if (!res.ok) {
       const errorText = await res.text()
@@ -127,7 +103,7 @@ export async function sendMessageToAnalyst(message: string, history: any[]) {
       let errorMessage = `Errore ${res.status} dal server n8n`
       
       if (res.status === 404) {
-        errorMessage = `Errore 404: Webhook non trovato.\n\nVerifica che:\n- Il workflow "Nexus Deep Analyst" (ID: bjSW53qgmDGMP5TZ) sia attivo in n8n\n- L'URL del webhook sia corretto\n- Il nodo Webhook sia configurato correttamente\n\nURL tentato: ${webhookUrl}\n\nPer ottenere l'URL corretto:\n1. Apri il workflow in n8n\n2. Clicca sul nodo "Chat Webhook"\n3. Copia l'URL del webhook mostrato\n4. Aggiorna la variabile N8N_CHAT_WEBHOOK_URL in Vercel`
+        errorMessage = `Errore 404: Webhook non trovato.\n\nVerifica che:\n- Il workflow "Nexus Deep Analyst" (ID: bjSW53qgmDGMP5TZ) sia attivo in n8n\n- L'URL del webhook sia corretto\n- Il nodo Webhook sia configurato correttamente\n\nURL tentato: ${webhookUrl}\n\nL'URL stabile è basato sul webhookId e non cambia mai a meno di eliminare il nodo webhook.`
       } else if (res.status === 500) {
         errorMessage = `Errore 500: Errore interno del server n8n.\n\nDettagli: ${errorText.substring(0, 300)}`
       } else {
