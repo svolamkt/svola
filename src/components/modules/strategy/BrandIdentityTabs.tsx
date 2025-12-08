@@ -4,12 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CompanyInfoForm } from "./CompanyInfoForm"
 import { BrandKitForm } from "./BrandKitForm"
 import { BrandAnalysisForm } from "./BrandAnalysisForm"
-import { BrandDNAView } from "./BrandDNAView"
-import { ProductMatrixView } from "./ProductMatrixView"
-import { TargetAudienceView } from "./TargetAudienceView"
-import { MarketContextView } from "./MarketContextView"
-import { CompetitorsView } from "./CompetitorsView"
-import { MarketingAssetsView } from "./MarketingAssetsView"
+import { BrandDNAForm } from "./BrandDNAForm"
+import { ProductMatrixForm } from "./ProductMatrixForm"
+import { TargetAudienceForm } from "./TargetAudienceForm"
+import { MarketContextForm } from "./MarketContextForm"
+import { CompetitorsForm } from "./CompetitorsForm"
+import { MarketingAssetsForm } from "./MarketingAssetsForm"
 import { Database } from "@/lib/supabase/types"
 
 type BrandIdentity = Database['public']['Tables']['brand_identity']['Row']
@@ -44,27 +44,27 @@ export function BrandIdentityTabs({ initialData }: BrandIdentityTabsProps) {
           </TabsContent>
           
           <TabsContent value="dna">
-            <BrandDNAView data={initialData} />
+            <BrandDNAForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="product">
-            <ProductMatrixView data={initialData} />
+            <ProductMatrixForm initialData={initialData} />
           </TabsContent>
 
           <TabsContent value="target">
-            <TargetAudienceView data={initialData} />
+            <TargetAudienceForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="market">
-            <MarketContextView data={initialData} />
+            <MarketContextForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="competitors">
-            <CompetitorsView data={initialData} />
+            <CompetitorsForm initialData={initialData} />
           </TabsContent>
           
           <TabsContent value="assets">
-            <MarketingAssetsView data={initialData} />
+            <MarketingAssetsForm initialData={initialData} />
           </TabsContent>
         </Tabs>
       </div>
