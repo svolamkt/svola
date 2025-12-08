@@ -69,7 +69,7 @@ export function CompetitorsForm({ initialData }: { initialData: BrandIdentity | 
   }
 
   const removeCompetitor = (index: number) => {
-    setFormData({ ...formData, direct_competitors: formData.direct_competitors.filter((_, i) => i !== index) })
+    setFormData({ ...formData, direct_competitors: formData.direct_competitors.filter((_competitor: Competitor, i: number) => i !== index) })
   }
 
   return (

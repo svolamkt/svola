@@ -61,7 +61,7 @@ export function ProductMatrixForm({ initialData }: { initialData: BrandIdentity 
   }
 
   const removeBenefit = (index: number) => {
-    setFormData({ ...formData, benefits: formData.benefits.filter((_, i) => i !== index) })
+    setFormData({ ...formData, benefits: formData.benefits.filter((_benefit: string, i: number) => i !== index) })
   }
 
   return (

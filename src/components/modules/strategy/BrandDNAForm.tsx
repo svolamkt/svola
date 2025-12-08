@@ -69,7 +69,7 @@ export function BrandDNAForm({ initialData }: { initialData: BrandIdentity | nul
   }
 
   const removeValue = (index: number) => {
-    setFormData({ ...formData, values: formData.values.filter((_, i) => i !== index) })
+    setFormData({ ...formData, values: formData.values.filter((_value: string, i: number) => i !== index) })
   }
 
   const addArchetype = () => {
@@ -80,7 +80,7 @@ export function BrandDNAForm({ initialData }: { initialData: BrandIdentity | nul
   }
 
   const removeArchetype = (index: number) => {
-    setFormData({ ...formData, archetypes: formData.archetypes.filter((_, i) => i !== index) })
+    setFormData({ ...formData, archetypes: formData.archetypes.filter((_arch: string, i: number) => i !== index) })
   }
 
   return (

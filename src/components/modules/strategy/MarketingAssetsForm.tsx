@@ -66,7 +66,7 @@ export function MarketingAssetsForm({ initialData }: { initialData: BrandIdentit
   }
 
   const removeChannel = (index: number) => {
-    setFormData({ ...formData, channels: formData.channels.filter((_, i) => i !== index) })
+    setFormData({ ...formData, channels: formData.channels.filter((_channel: string, i: number) => i !== index) })
   }
 
   return (

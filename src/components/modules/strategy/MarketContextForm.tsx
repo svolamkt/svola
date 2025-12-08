@@ -58,7 +58,7 @@ export function MarketContextForm({ initialData }: { initialData: BrandIdentity 
   }
 
   const removeTrend = (index: number) => {
-    setFormData({ ...formData, trends: formData.trends.filter((_, i) => i !== index) })
+    setFormData({ ...formData, trends: formData.trends.filter((_trend: string, i: number) => i !== index) })
   }
 
   return (

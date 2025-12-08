@@ -73,7 +73,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
   }
 
   const removePersona = (index: number) => {
-    setFormData({ ...formData, personas: formData.personas.filter((_, i) => i !== index) })
+    setFormData({ ...formData, personas: formData.personas.filter((_persona: Persona, i: number) => i !== index) })
   }
 
   const addPainPoint = () => {
@@ -84,7 +84,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
   }
 
   const removePainPoint = (index: number) => {
-    setFormData({ ...formData, pain_points: formData.pain_points.filter((_, i) => i !== index) })
+    setFormData({ ...formData, pain_points: formData.pain_points.filter((_point: string, i: number) => i !== index) })
   }
 
   const addTrigger = () => {
@@ -95,7 +95,7 @@ export function TargetAudienceForm({ initialData }: { initialData: BrandIdentity
   }
 
   const removeTrigger = (index: number) => {
-    setFormData({ ...formData, triggers: formData.triggers.filter((_, i) => i !== index) })
+    setFormData({ ...formData, triggers: formData.triggers.filter((_trigger: string, i: number) => i !== index) })
   }
 
   return (
