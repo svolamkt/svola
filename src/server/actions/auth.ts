@@ -42,20 +42,20 @@ export async function signup(formData: FormData) {
     redirect('/register?error=' + authError.message)
   }
 
-  // 2. Create Organization & Profile
+  // 2. Create Agency & Profile
   if (authData.user) {
-     // Create Organization
-     const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({ name: data.company_name })
+     // Create Agency
+     const { data: agency, error: agencyError } = await supabase
+        .from('agencies')
+        .insert({ name: data.company_name, n8n_api_key: '', n8n_base_url: '' })
         .select()
         .single()
      
-     if (!orgError && org) {
-         // Create Profile linked to Org
+     if (!agencyError && agency) {
+         // Create Profile linked to Agency
          const { error: profileError } = await supabase.from('profiles').insert({
              id: authData.user.id,
-             organization_id: org.id,
+             agency_id: agency.id,
              full_name: data.full_name,
              role: 'admin'
          })
@@ -64,10 +64,11 @@ export async function signup(formData: FormData) {
             console.error('Profile creation failed:', profileError)
          }
      } else {
-         console.error('Org creation failed:', orgError)
+         console.error('Agency creation failed:', agencyError)
      }
   }
 
   revalidatePath('/', 'layout')
   redirect('/')
 }
+

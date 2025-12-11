@@ -394,3 +394,4 @@ REGOLE CRITICHE:
 Output: JSON completo con brand_master_file + confidence_notes[] + warnings[] + next_steps[] + executive_summary`;
 ```
 
+

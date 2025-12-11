@@ -192,3 +192,4 @@ Questo JSON viene poi:
 4. ⏳ Implementare Google Search Tool
 5. ⏳ Ottimizzare performance se necessario
 
+

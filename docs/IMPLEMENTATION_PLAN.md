@@ -288,3 +288,4 @@ ADD COLUMN IF NOT EXISTS maturity_score INTEGER CHECK (maturity_score >= 0 AND m
 4. Completare UI risultati (Fase 7)
 5. Testing completo
 
+

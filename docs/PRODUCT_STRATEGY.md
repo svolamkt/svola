@@ -429,3 +429,4 @@ ALTER TABLE brand_identity ADD COLUMN IF NOT EXISTS maturity_score INTEGER; -- 0
 👉 Il vero valore è trasformare incertezza in chiarezza
 👉 La trasparenza (confidence notes) è la chiave per credibilità
 
+

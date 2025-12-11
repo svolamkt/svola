@@ -45,3 +45,4 @@ Questo workflow implementa la logica **Adattiva**:
 3. Scegli un livello di consapevolezza diverso per vedere risultati diversi
 4. Controlla il tab "Risultati" dopo l'analisi
 
+

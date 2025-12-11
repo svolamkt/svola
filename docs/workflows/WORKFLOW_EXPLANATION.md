@@ -229,3 +229,4 @@ Alcuni agenti potrebbero avere prompt troppo generici. Potrebbero essere ottimiz
 - `NEXUS_DEEP_ANALYST_CORRECTED.json` - JSON corretto del workflow
 - `IMPLEMENTATION_GUIDE.md` - Guida all'implementazione
 
+

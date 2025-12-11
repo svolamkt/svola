@@ -137,3 +137,4 @@ Un sistema che trasforma **qualsiasi cliente, anche poco consapevole, in un Bran
 - **Proteggere UX**: Messaggio Step 4 previene percezioni negative
 - **Comportamento deterministico**: Agenti si comportano sempre nello stesso modo per stesso input
 
+

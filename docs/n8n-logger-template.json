@@ -1,0 +1,159 @@
+{
+  "name": "N8N Logger - Supabase Analytics",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-workflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "logger-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare payload for Supabase\nconst orgApiKey = $input.item.json.org_api_key || $env.ORG_API_KEY;\nconst workflowName = $input.item.json.workflow_name || '{{ $workflow.name }}';\nconst executionId = $input.item.json.execution_id || '{{ $execution.id }}';\nconst status = $input.item.json.status || '{{ $execution.status }}';\nconst meta = $input.item.json.meta || {};\n\n// Calculate duration if available\nconst startedAt = $input.item.json.started_at || new Date().toISOString();\nconst durationMs = $input.item.json.duration_ms || null;\n\n// Error message if status is error\nconst errorMessage = status === 'error' ? ($input.item.json.error_message || 'Unknown error') : null;\n\nreturn [{\n  json: {\n    org_id: $input.item.json.org_id || null, // Will be resolved from API key in Edge Function\n    execution_id: executionId,\n    workflow_name: workflowName,\n    status: status,\n    started_at: startedAt,\n    duration_ms: durationMs,\n    metadata: meta,\n    error_message: errorMessage,\n    api_key: orgApiKey\n  }\n}];"
+      },
+      "id": "prepare-payload",
+      "name": "Prepare Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/workflow_logs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $json.api_key }}"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "org_id",
+              "value": "={{ $json.org_id }}"
+            },
+            {
+              "name": "execution_id",
+              "value": "={{ $json.execution_id }}"
+            },
+            {
+              "name": "workflow_name",
+              "value": "={{ $json.workflow_name }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "name": "started_at",
+              "value": "={{ $json.started_at }}"
+            },
+            {
+              "name": "duration_ms",
+              "value": "={{ $json.duration_ms }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ $json.metadata }}"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $json.error_message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "HTTP Request to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase-header-auth",
+          "name": "Supabase Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": "201",
+              "operator": {
+                "type": "number",
+                "operation": "notEqual"
+              }
+            }
+          ]
+        }
+      },
+      "id": "check-error",
+      "name": "Check Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log error but don't fail the workflow\nconsole.error('Failed to log to Supabase:', $input.item.json);\nreturn [{ json: { error: 'Logging failed but workflow continues', details: $input.item.json } }];"
+      },
+      "id": "log-error",
+      "name": "Log Error (Non-Blocking)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Prepare Payload", "type": "main", "index": 0}]]
+    },
+    "Prepare Payload": {
+      "main": [[{"node": "HTTP Request to Supabase", "type": "main", "index": 0}]]
+    },
+    "HTTP Request to Supabase": {
+      "main": [[{"node": "Check Error", "type": "main", "index": 0}]]
+    },
+    "Check Error": {
+      "main": [
+        [],
+        [{"node": "Log Error (Non-Blocking)", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-12-11T00:00:00.000Z",
+  "versionId": "1"
+}
+
