@@ -45,21 +45,28 @@ export class N8nApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}/api/v1${endpoint}`;
     
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'X-N8N-API-KEY': this.apiKey,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'X-N8N-API-KEY': this.apiKey,
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`n8n API Error: ${response.status} - ${error}`);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`n8n API Error (${response.status}): ${errorText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error(`Impossibile connettersi a ${this.baseUrl}. Verifica che l'URL sia corretto e accessibile.`);
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   /**
