@@ -96,6 +96,14 @@ export async function POST(request: NextRequest) {
       agencyId = data.id
     } else {
       // Create
+      // Verifica che l'utente non abbia già un'agenzia
+      if (profile?.agency_id) {
+        return NextResponse.json(
+          { error: 'Agency already exists for this user' },
+          { status: 400 }
+        )
+      }
+
       const { data, error } = await supabase
         .from('agencies')
         .insert({
@@ -108,7 +116,12 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         return NextResponse.json(
-          { error: 'Agency creation failed', details: error.message, code: error.code },
+          { 
+            error: 'Agency creation failed', 
+            details: error.message, 
+            code: error.code,
+            hint: error.code === '42501' ? 'RLS policy violation: Missing INSERT policy for agencies table. Run migration: add_agency_insert_policy.sql' : undefined
+          },
           { status: 500 }
         )
       }

@@ -121,6 +121,11 @@ export async function upsertAgency(formData: FormData) {
       agencyId = data.id
     } else {
       // Crea nuova agenzia
+      // Verifica che l'utente non abbia già un'agenzia
+      if (profile?.agency_id) {
+        throw new Error('Agenzia già esistente per questo utente. Usa la funzione di aggiornamento.')
+      }
+
       const { data, error } = await supabase
         .from('agencies')
         .insert({
@@ -133,6 +138,10 @@ export async function upsertAgency(formData: FormData) {
 
       if (error) {
         console.error('Agency creation error:', error)
+        // Se è un errore RLS, fornisci un messaggio più chiaro
+        if (error.code === '42501') {
+          throw new Error('Errore permessi: Non puoi creare un\'agenzia. Contatta l\'amministratore o verifica le policy RLS.')
+        }
         throw new Error(`Errore creazione agenzia: ${error.message}`)
       }
 
