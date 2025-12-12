@@ -143,43 +143,58 @@ function createLoggerWorkflowTemplate(
  * Crea un nuovo cliente e workflow logger automaticamente
  */
 export async function createClientAndLogger(formData: FormData) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  try {
+    const supabase = await createClient()
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      throw new Error('Unauthorized: Please log in again')
+    }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('agency_id')
-    .eq('id', user.id)
-    .single()
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('agency_id')
+      .eq('id', user.id)
+      .single()
 
-  if (!profile?.agency_id) {
-    throw new Error('Agency not found. Please configure your agency first.')
-  }
+    if (profileError) {
+      console.error('Profile error:', profileError)
+      throw new Error('Failed to load user profile')
+    }
 
-  const { data: agency, error: agencyError } = await supabase
-    .from('agencies')
-    .select('*')
-    .eq('id', profile.agency_id)
-    .single()
+    if (!profile?.agency_id) {
+      throw new Error('Agency not configured. Please go to Settings and configure your n8n connection first.')
+    }
 
-  if (agencyError || !agency) {
-    throw new Error('Agency configuration not found')
-  }
+    const { data: agency, error: agencyError } = await supabase
+      .from('agencies')
+      .select('*')
+      .eq('id', profile.agency_id)
+      .single()
 
-  const name = formData.get('name') as string
-  if (!name) {
-    throw new Error('Client name is required')
-  }
+    if (agencyError) {
+      console.error('Agency error:', agencyError)
+      throw new Error('Failed to load agency configuration')
+    }
 
-  // Genera logger token
-  const loggerToken = generateUUID()
+    if (!agency) {
+      throw new Error('Agency not found. Please configure your agency in Settings.')
+    }
 
-  // 1. Crea cliente in DB
-  const { data: client, error: clientError } = await supabase
+    if (!agency.n8n_base_url || !agency.n8n_api_key) {
+      throw new Error('n8n configuration incomplete. Please configure n8n URL and API key in Settings.')
+    }
+
+    const name = formData.get('name') as string
+    if (!name || !name.trim()) {
+      throw new Error('Client name is required')
+    }
+
+    // Genera logger token
+    const loggerToken = generateUUID()
+
+    // 1. Crea cliente in DB
+    const { data: client, error: clientError } = await supabase
     .from('clients')
     .insert({
       agency_id: agency.id,
@@ -190,49 +205,79 @@ export async function createClientAndLogger(formData: FormData) {
     .select()
     .single()
 
-  if (clientError) throw clientError
+    if (clientError) {
+      console.error('Client creation error:', clientError)
+      throw new Error(`Failed to create client: ${clientError.message}`)
+    }
 
-  // 2. Crea workflow logger in n8n
-  try {
-    const n8nClient = new N8nApiClient(agency.n8n_base_url, agency.n8n_api_key)
-    
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    
-    const loggerWorkflow = createLoggerWorkflowTemplate(
-      name,
-      loggerToken,
-      client.id,
-      supabaseUrl,
-      supabaseAnonKey
-    )
+    if (!client) {
+      throw new Error('Failed to create client')
+    }
 
-    const createdWorkflow = await n8nClient.createWorkflow(loggerWorkflow)
+    // 2. Crea workflow logger in n8n
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Missing Supabase environment variables. Please check your deployment configuration.')
+      }
 
-    // 3. Salva workflow_id nel cliente
-    await supabase
-      .from('clients')
-      .update({ logger_workflow_id: createdWorkflow.id })
-      .eq('id', client.id)
+      const n8nClient = new N8nApiClient(agency.n8n_base_url, agency.n8n_api_key)
+      
+      // Test connessione n8n prima di creare workflow
+      const isConnected = await n8nClient.testConnection()
+      if (!isConnected) {
+        throw new Error('Cannot connect to n8n. Please verify your n8n URL and API key in Settings.')
+      }
+      
+      const loggerWorkflow = createLoggerWorkflowTemplate(
+        name,
+        loggerToken,
+        client.id,
+        supabaseUrl,
+        supabaseAnonKey
+      )
 
-    // 4. Sincronizza workflow nel database locale
-    await supabase
-      .from('n8n_workflows')
-      .upsert({
-        id: createdWorkflow.id,
-        agency_id: agency.id,
-        name: createdWorkflow.name,
-        is_active: createdWorkflow.active,
-        client_id: client.id, // Assegnato al cliente
-        last_synced_at: new Date().toISOString(),
-      })
+      const createdWorkflow = await n8nClient.createWorkflow(loggerWorkflow)
 
-    revalidatePath('/clients')
-    return { success: true, client, loggerWorkflowId: createdWorkflow.id }
+      // 3. Salva workflow_id nel cliente
+      await supabase
+        .from('clients')
+        .update({ logger_workflow_id: createdWorkflow.id })
+        .eq('id', client.id)
+
+      // 4. Sincronizza workflow nel database locale
+      await supabase
+        .from('n8n_workflows')
+        .upsert({
+          id: createdWorkflow.id,
+          agency_id: agency.id,
+          name: createdWorkflow.name,
+          is_active: createdWorkflow.active,
+          client_id: client.id, // Assegnato al cliente
+          last_synced_at: new Date().toISOString(),
+        })
+
+      revalidatePath('/clients')
+      return { success: true, client, loggerWorkflowId: createdWorkflow.id }
+    } catch (error) {
+      console.error('Error creating n8n workflow:', error)
+      // Se creazione workflow fallisce, elimina cliente
+      if (client?.id) {
+        try {
+          await supabase.from('clients').delete().eq('id', client.id)
+        } catch (deleteError) {
+          console.error('Error deleting client:', deleteError)
+        }
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(`Failed to create logger workflow in n8n: ${errorMessage}`)
+    }
   } catch (error) {
-    // Se creazione workflow fallisce, elimina cliente
-    await supabase.from('clients').delete().eq('id', client.id)
-    throw new Error(`Failed to create logger workflow: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    console.error('Error in createClientAndLogger:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    throw new Error(errorMessage)
   }
 }
 

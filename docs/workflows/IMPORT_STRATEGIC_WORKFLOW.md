@@ -24,3 +24,4 @@ Assicurati che i seguenti nodi abbiano le credenziali corrette (dovrebbero esser
 Vai nella dashboard "Brain" e prova a inserire un'idea (senza sito web) o un business esistente. Vedrai la differenza!
 
 
+

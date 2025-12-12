@@ -67,3 +67,4 @@ COMMENT ON COLUMN workflow_logs.org_id IS 'Organization ID for multi-tenancy iso
 COMMENT ON COLUMN workflow_logs.execution_id IS 'Unique n8n execution ID';
 COMMENT ON COLUMN workflow_logs.metadata IS 'Custom JSON data from n8n workflow';
 
+

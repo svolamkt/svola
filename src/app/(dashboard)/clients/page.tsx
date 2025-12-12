@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClientAndLogger, getClients, generateLoggerSnippet } from '@/server/actions/clients'
-import { Loader2, Plus, Copy, Check } from 'lucide-react'
+import { getAgency } from '@/server/actions/agencies'
+import { Loader2, Plus, Copy, Check, AlertCircle } from 'lucide-react'
 
 interface Client {
   id: string
@@ -23,10 +24,22 @@ export default function ClientsPage() {
   const [showForm, setShowForm] = useState(false)
   const [clientName, setClientName] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [agencyConfigured, setAgencyConfigured] = useState<boolean | null>(null)
 
   useEffect(() => {
     loadClients()
+    checkAgency()
   }, [])
+
+  const checkAgency = async () => {
+    try {
+      const agency = await getAgency()
+      setAgencyConfigured(!!agency && !!agency.n8n_base_url && !!agency.n8n_api_key)
+    } catch (error) {
+      console.error('Error checking agency:', error)
+      setAgencyConfigured(false)
+    }
+  }
 
   const loadClients = async () => {
     try {
@@ -63,7 +76,16 @@ export default function ClientsPage() {
       }
     } catch (error) {
       console.error('Create error:', error)
-      alert(`Errore creazione cliente: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      
+      // Messaggi più user-friendly
+      if (errorMessage.includes('Agency not configured') || errorMessage.includes('Settings')) {
+        alert(`⚠️ ${errorMessage}\n\nVai su Settings per configurare la tua agenzia e la connessione n8n.`)
+      } else if (errorMessage.includes('n8n')) {
+        alert(`⚠️ Errore connessione n8n: ${errorMessage}\n\nVerifica le credenziali n8n in Settings.`)
+      } else {
+        alert(`❌ Errore creazione cliente: ${errorMessage}`)
+      }
     } finally {
       setCreating(false)
     }
@@ -99,11 +121,27 @@ export default function ClientsPage() {
             Gestisci i tuoi clienti e genera snippet logger per n8n
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button 
+          onClick={() => setShowForm(!showForm)}
+          disabled={agencyConfigured === false}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Nuovo Cliente
         </Button>
       </div>
+
+      {agencyConfigured === false && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-yellow-800">Agenzia non configurata</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              Configura la tua agenzia e la connessione n8n in{' '}
+              <a href="/settings" className="underline font-medium">Settings</a> prima di creare clienti.
+            </p>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <Card>

@@ -275,3 +275,4 @@ Vedi [FEASIBILITY_ANALYSIS.md](./FEASIBILITY_ANALYSIS.md) per dettagli completi 
 - Il workflow sequenziale può essere convertito in parallelo in futuro
 
 
+

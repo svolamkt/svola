@@ -230,3 +230,4 @@ Alcuni agenti potrebbero avere prompt troppo generici. Potrebbero essere ottimiz
 - `IMPLEMENTATION_GUIDE.md` - Guida all'implementazione
 
 
+

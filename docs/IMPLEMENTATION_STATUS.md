@@ -183,3 +183,4 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc... # Per webhook
 
 **Status Generale**: 🟢 **70% Completato** - Core funzionalità implementate, mancano miglioramenti UI e testing.
 
+

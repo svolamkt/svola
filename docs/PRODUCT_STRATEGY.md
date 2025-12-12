@@ -430,3 +430,4 @@ ALTER TABLE brand_identity ADD COLUMN IF NOT EXISTS maturity_score INTEGER; -- 0
 👉 La trasparenza (confidence notes) è la chiave per credibilità
 
 
+

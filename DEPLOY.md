@@ -6,11 +6,18 @@
 
 **IMPORTANTE**: Esegui la migration prima del deploy!
 
+**Opzione A: Dashboard Supabase (Consigliato)**
 1. Vai su [Supabase Dashboard](https://app.supabase.com)
 2. Seleziona il tuo progetto
 3. Vai su **SQL Editor**
 4. Copia e incolla il contenuto di `supabase/migrations/add_n8n_agency_os.sql`
-5. Esegui la query
+5. Clicca **"Run"**
+
+**Opzione B: Via Script (se hai accesso a variabili d'ambiente)**
+```bash
+# Lo script mostrerà le istruzioni
+npx tsx scripts/run-migration-direct.ts
+```
 
 La migration creerà:
 - `agencies` - Configurazione n8n per agenzia
@@ -125,10 +132,10 @@ Dopo il deploy, verifica:
 
 ## ✅ Deploy Checklist
 
-- [ ] Migration database eseguita
+- [x] Migration database eseguita ✅
 - [ ] Environment variables configurate
-- [ ] Build locale funziona (`npm run build`)
-- [ ] Push su GitHub
+- [x] Build locale funziona (`npm run build`) ✅
+- [x] Push su GitHub ✅
 - [ ] Deploy su Vercel completato
 - [ ] Test registrazione utente
 - [ ] Test configurazione agenzia
@@ -139,4 +146,5 @@ Dopo il deploy, verifica:
 ---
 
 **Ready to Deploy! 🚀**
+
 

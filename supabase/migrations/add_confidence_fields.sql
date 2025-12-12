@@ -7,3 +7,4 @@ ADD COLUMN IF NOT EXISTS awareness_level TEXT CHECK (awareness_level IN ('low', 
 ADD COLUMN IF NOT EXISTS maturity_score INTEGER CHECK (maturity_score >= 0 AND maturity_score <= 100);
 
 
+

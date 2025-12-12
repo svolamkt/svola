@@ -1,18 +1,17 @@
--- Migration: n8n Agency OS - Control Plane
+-- Migration: n8n Agency OS - Control Plane (Safe Version - No DROP statements)
 -- Date: December 2024
 -- Purpose: Support bidirectional n8n management and client organization
+-- 
+-- NOTE: This version doesn't use DROP POLICY to avoid Supabase warnings.
+-- If policies already exist, you may see "already exists" errors which are safe to ignore.
 
 -- STEP 0: Aggiungere agency_id a profiles PRIMA di creare le policies
--- Questo è necessario perché le RLS policies fanno riferimento a profiles.agency_id
 DO $$ 
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'profiles' AND column_name = 'agency_id'
   ) THEN
-    -- Prima creiamo la tabella agencies (se non esiste) per la foreign key
-    -- Ma non possiamo fare riferimento a una tabella che non esiste ancora
-    -- Quindi aggiungiamo la colonna senza foreign key constraint per ora
     ALTER TABLE profiles ADD COLUMN agency_id UUID;
   END IF;
 END $$;
@@ -21,22 +20,20 @@ END $$;
 CREATE TABLE IF NOT EXISTS agencies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  n8n_api_key TEXT NOT NULL, -- API Key di n8n (criptare in produzione)
-  n8n_base_url TEXT NOT NULL, -- es. https://n8n.miagenzia.com
+  n8n_api_key TEXT NOT NULL,
+  n8n_base_url TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Ora aggiungiamo la foreign key constraint a profiles.agency_id
+-- Aggiungi foreign key constraint a profiles.agency_id
 DO $$ 
 BEGIN
-  -- Verifica se la foreign key constraint esiste già
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints 
     WHERE constraint_name = 'profiles_agency_id_fkey'
     AND table_name = 'profiles'
   ) THEN
-    -- Aggiungi foreign key constraint se la colonna esiste
     IF EXISTS (
       SELECT 1 FROM information_schema.columns 
       WHERE table_name = 'profiles' AND column_name = 'agency_id'
@@ -54,29 +51,29 @@ CREATE TABLE IF NOT EXISTS clients (
   agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived')),
-  logger_token TEXT UNIQUE DEFAULT gen_random_uuid(), -- Token per webhook logger
-  logger_workflow_id TEXT, -- ID del workflow logger creato in n8n
+  logger_token TEXT UNIQUE DEFAULT gen_random_uuid(),
+  logger_workflow_id TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Workflow Mappati (Ponte tra n8n e Dashboard)
+-- 3. Workflow Mappati
 CREATE TABLE IF NOT EXISTS n8n_workflows (
-  id TEXT PRIMARY KEY, -- ID originale di n8n (es. "1234")
+  id TEXT PRIMARY KEY,
   agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE NOT NULL,
-  client_id UUID REFERENCES clients(id) ON DELETE SET NULL, -- NULL = Unassigned
+  client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   is_active BOOLEAN DEFAULT false,
   last_synced_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 4. Log Esecuzioni (Dati per Analytics)
+-- 4. Log Esecuzioni
 CREATE TABLE IF NOT EXISTS execution_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workflow_id TEXT REFERENCES n8n_workflows(id) ON DELETE SET NULL,
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
-  execution_id TEXT NOT NULL, -- ID esecuzione n8n
+  execution_id TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('success', 'error', 'running')),
   started_at TIMESTAMPTZ NOT NULL,
   execution_time_ms INTEGER,
@@ -85,7 +82,7 @@ CREATE TABLE IF NOT EXISTS execution_logs (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Indici per Performance
+-- Indici
 CREATE INDEX IF NOT EXISTS idx_workflows_agency ON n8n_workflows(agency_id);
 CREATE INDEX IF NOT EXISTS idx_workflows_client ON n8n_workflows(client_id);
 CREATE INDEX IF NOT EXISTS idx_logs_client_date ON execution_logs(client_id, started_at DESC);
@@ -93,100 +90,69 @@ CREATE INDEX IF NOT EXISTS idx_logs_workflow ON execution_logs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_clients_agency ON clients(agency_id);
 CREATE INDEX IF NOT EXISTS idx_logs_execution_id ON execution_logs(execution_id);
 
--- RLS Policies (ora profiles.agency_id esiste già)
+-- RLS
 ALTER TABLE agencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE n8n_workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE execution_logs ENABLE ROW LEVEL SECURITY;
 
--- Policy: Agencies (ogni utente vede solo la sua agenzia)
-DROP POLICY IF EXISTS "Users can view their agency" ON agencies;
-CREATE POLICY "Users can view their agency"
+-- Policies (senza DROP - se esistono già darà errore "already exists" che puoi ignorare)
+CREATE POLICY IF NOT EXISTS "Users can view their agency"
   ON agencies FOR SELECT
   USING (
-    id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "Users can update their agency" ON agencies;
-CREATE POLICY "Users can update their agency"
+CREATE POLICY IF NOT EXISTS "Users can update their agency"
   ON agencies FOR UPDATE
   USING (
-    id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
--- Policy: Clients (solo clienti della propria agenzia)
-DROP POLICY IF EXISTS "Users can view their agency clients" ON clients;
-CREATE POLICY "Users can view their agency clients"
+CREATE POLICY IF NOT EXISTS "Users can view their agency clients"
   ON clients FOR SELECT
   USING (
-    agency_id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "Users can insert clients for their agency" ON clients;
-CREATE POLICY "Users can insert clients for their agency"
+CREATE POLICY IF NOT EXISTS "Users can insert clients for their agency"
   ON clients FOR INSERT
   WITH CHECK (
-    agency_id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "Users can update their agency clients" ON clients;
-CREATE POLICY "Users can update their agency clients"
+CREATE POLICY IF NOT EXISTS "Users can update their agency clients"
   ON clients FOR UPDATE
   USING (
-    agency_id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
--- Policy: Workflows (solo workflow della propria agenzia)
-DROP POLICY IF EXISTS "Users can view their agency workflows" ON n8n_workflows;
-CREATE POLICY "Users can view their agency workflows"
+CREATE POLICY IF NOT EXISTS "Users can view their agency workflows"
   ON n8n_workflows FOR SELECT
   USING (
-    agency_id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "Users can update their agency workflows" ON n8n_workflows;
-CREATE POLICY "Users can update their agency workflows"
+CREATE POLICY IF NOT EXISTS "Users can update their agency workflows"
   ON n8n_workflows FOR UPDATE
   USING (
-    agency_id = (
-      SELECT agency_id FROM profiles WHERE id = auth.uid()
-    )
+    agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "System can insert workflows" ON n8n_workflows;
-CREATE POLICY "System can insert workflows"
+CREATE POLICY IF NOT EXISTS "System can insert workflows"
   ON n8n_workflows FOR INSERT
-  WITH CHECK (true); -- Validated via Server Action
+  WITH CHECK (true);
 
--- Policy: Logs (solo log dei clienti della propria agenzia)
-DROP POLICY IF EXISTS "Users can view their agency logs" ON execution_logs;
-CREATE POLICY "Users can view their agency logs"
+CREATE POLICY IF NOT EXISTS "Users can view their agency logs"
   ON execution_logs FOR SELECT
   USING (
     client_id IN (
       SELECT id FROM clients 
-      WHERE agency_id = (
-        SELECT agency_id FROM profiles WHERE id = auth.uid()
-      )
+      WHERE agency_id = (SELECT agency_id FROM profiles WHERE id = auth.uid())
     )
   );
 
--- Policy: Webhook può inserire log (convalidato via token)
--- NOTE: In produzione, usare Edge Function per validazione token
-DROP POLICY IF EXISTS "Webhook can insert logs with token" ON execution_logs;
-CREATE POLICY "Webhook can insert logs with token"
+CREATE POLICY IF NOT EXISTS "Webhook can insert logs with token"
   ON execution_logs FOR INSERT
   WITH CHECK (
     EXISTS (
@@ -196,10 +162,9 @@ CREATE POLICY "Webhook can insert logs with token"
     )
   );
 
--- Comments per documentazione
+-- Comments
 COMMENT ON TABLE agencies IS 'Agenzie che usano il sistema. Contiene credenziali n8n.';
 COMMENT ON TABLE clients IS 'Clienti dell''agenzia. Ogni cliente ha un workflow logger automatico.';
 COMMENT ON TABLE n8n_workflows IS 'Workflow sincronizzati da n8n. Possono essere assegnati a clienti.';
 COMMENT ON TABLE execution_logs IS 'Log esecuzioni workflow. Inseriti via webhook con logger_token.';
-
 

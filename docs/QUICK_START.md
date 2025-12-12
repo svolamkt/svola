@@ -138,3 +138,4 @@ Un sistema che trasforma **qualsiasi cliente, anche poco consapevole, in un Bran
 - **Comportamento deterministico**: Agenti si comportano sempre nello stesso modo per stesso input
 
 
+

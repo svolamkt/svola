@@ -615,3 +615,4 @@ ORDER BY date;
 
 **Domanda**: Procediamo con l'implementazione o vuoi modifiche al piano?
 
+
