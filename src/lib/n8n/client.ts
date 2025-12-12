@@ -162,7 +162,12 @@ export class N8nApiClient {
       await this.getWorkflows();
       return true;
     } catch (error) {
-      return false;
+      console.error('n8n connection test failed:', error);
+      // Rilancia l'errore con dettagli per debugging
+      if (error instanceof Error) {
+        throw new Error(`n8n connection failed: ${error.message}`);
+      }
+      throw new Error('n8n connection failed: Unknown error');
     }
   }
 }

@@ -55,16 +55,51 @@ export default function SettingsPage() {
       formDataObj.append('n8n_base_url', formData.n8n_base_url)
       formDataObj.append('n8n_api_key', formData.n8n_api_key)
       
+      // Prova prima con la route di debug per vedere l'errore dettagliato
+      try {
+        const debugResponse = await fetch('/api/debug/agency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            n8n_base_url: formData.n8n_base_url,
+            n8n_api_key: formData.n8n_api_key,
+          }),
+        })
+
+        if (!debugResponse.ok) {
+          const debugError = await debugResponse.json()
+          console.error('Debug error details:', debugError)
+          alert(`Errore: ${debugError.error}\n\nDettagli: ${debugError.details || 'Nessun dettaglio disponibile'}`)
+          return
+        }
+
+        const debugResult = await debugResponse.json()
+        if (debugResult.success) {
+          setSaved(true)
+          setTimeout(() => setSaved(false), 3000)
+          alert('Configurazione salvata con successo!')
+          await loadAgency() // Ricarica i dati
+          return
+        }
+      } catch (debugError) {
+        console.error('Debug route error:', debugError)
+        // Fallback alla funzione normale
+      }
+
+      // Fallback alla funzione normale
       const result = await upsertAgency(formDataObj)
       
       if (result.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
         alert('Configurazione salvata con successo!')
+        await loadAgency()
       }
     } catch (error) {
       console.error('Save error:', error)
-      alert(`Errore salvataggio: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Errore salvataggio: ${errorMessage}`)
     } finally {
       setSaving(false)
     }
